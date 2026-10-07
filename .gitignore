@@ -1,0 +1,31 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+dist/
+build/
+*.egg-info/
+
+# Secrets / environment
+.env
+.env.*
+!.env.example
+
+# Atlas runtime data (SQLite DB, uploads, vectors)
+data/
+report.md
+*.db
+*.db-wal
+*.db-shm
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
