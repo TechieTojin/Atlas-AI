@@ -12,10 +12,12 @@ import re
 
 from pydantic import BaseModel, Field
 
-_CITATION_RE = re.compile(r"\[(\d+)\]")
+from src.unicode_text import CANONICAL_CITATION_RE, SENTENCE_BOUNDARY_RE
+
+_CITATION_RE = CANONICAL_CITATION_RE
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
-# Sentence boundary: ., !, ? followed by whitespace — but not inside [n].
-_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+# Sentence boundary: ., !, ?, Devanagari । and ॥ followed by whitespace.
+_SENTENCE_SPLIT_RE = SENTENCE_BOUNDARY_RE
 
 
 class Claim(BaseModel):

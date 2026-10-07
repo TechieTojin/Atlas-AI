@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import re
 
+from src.unicode_text import WORD_RE as _UNICODE_WORD, comparison_key
+
 MAX_TITLE_CHARS = 120
 #: Two questions are "the same question" above this token overlap.
 SAME_QUESTION_JACCARD = 0.7
@@ -107,12 +109,24 @@ def topic_phrase(question: str, max_phrases: int = 2) -> str:
     return " · ".join(_titlecase(words) for _, words in chosen)
 
 
+#: Hyphen/apostrophe-joined words in any script ("lithium-ion" stays one token).
+_ANY_WORD = re.compile(rf"{_UNICODE_WORD.pattern}(?:[-'](?:{_UNICODE_WORD.pattern}))*")
+
+
 def _tokens(question: str) -> set[str]:
-    return {
-        match.group(0).lower()
-        for match in _WORD.finditer(question)
-        if match.group(0).lower() not in _FILLER
-    }
+    """Content tokens of a question, in any script.
+
+    Comparison keys are NFKC + casefold. The old ``[A-Za-z0-9]`` tokenizer
+    returned an empty set for any non-Latin question, which made every pair
+    of Malayalam or Hindi questions look identical. For ASCII the tokens are
+    exactly what they were.
+    """
+    tokens = set()
+    for match in _ANY_WORD.finditer(question):
+        token = comparison_key(match.group(0)).replace(" ", "")
+        if token and token not in _FILLER:
+            tokens.add(token)
+    return tokens
 
 
 def same_question(questions: list[str]) -> bool:

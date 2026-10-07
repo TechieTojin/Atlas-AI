@@ -19,6 +19,14 @@ from typing import Any
 from src.cancellation import awake_clock
 from src.graph.state import AtlasState
 from src.models.research import Evidence, Source
+from src.unicode_text import (
+    CANONICAL_CITATION_RE,
+    SENTENCE_BOUNDARY_RE,
+    SENTENCE_TERMINATORS,
+    has_meaningful_text,
+    is_canonical_citation,
+    normalize_citation_markers,
+)
 from src.tools.selection import select_synthesis_evidence
 from src.prompts.research import (
     CITATION_REPAIR_SYSTEM,
@@ -30,7 +38,11 @@ from src.prompts.research import (
 
 logger = logging.getLogger(__name__)
 
-_CITATION_RE = re.compile(r"\[(\d+)\]")
+# Canonical markers only: ASCII digits. Python's ``\d`` alone would also accept
+# "[१]" as citation 1 while leaving it unclickable in the UI.
+_CITATION_RE = CANONICAL_CITATION_RE
+# Any bracketed decimal-digit run, in any script: candidates for cleanup.
+_ANY_CITATION_RE = re.compile(r"\[(\d+)\]")
 # A heading (any level, optional bold/numbering) whose title is a reference list.
 _REFERENCE_HEADING_RE = re.compile(
     r"^\s{0,3}#{1,6}\s*\**\s*(?:\d+\.?\s*)?"
@@ -136,9 +148,18 @@ def strip_generated_reference_sections(markdown: str) -> str:
 
 
 def strip_invalid_citations(markdown: str, valid_max: int) -> str:
-    """Remove bracketed citation numbers that do not exist in the source list."""
-    return _CITATION_RE.sub(
-        lambda m: m.group(0) if 1 <= int(m.group(1)) <= valid_max else "",
+    """Canonicalise citation markers, then remove any that are not valid.
+
+    Markers written with another script's decimal digits (``[१२]``) become the
+    canonical ``[12]`` first. A marker that mixes digit systems (``[1२]``) or
+    points outside the source list is removed. ASCII markers behave exactly as
+    before, so English reports are unaffected.
+    """
+    markdown = normalize_citation_markers(markdown)
+    return _ANY_CITATION_RE.sub(
+        lambda m: m.group(0)
+        if is_canonical_citation(m.group(1)) and 1 <= int(m.group(1)) <= valid_max
+        else "",
         markdown,
     )
 
@@ -459,20 +480,24 @@ def extract_report_text(content: str) -> str:
         return partial.replace("\\n", "\n").replace('\\"', '"')
 
 
-_SENTENCE_END_RE = re.compile(r"(?<=[.!?])\s+")
-
-_PROSE_WORD_RE = re.compile(r"[A-Za-z]{2,}")
+_SENTENCE_END_RE = SENTENCE_BOUNDARY_RE
 
 
 def is_empty_draft(body: str) -> bool:
     """No prose at all (the live `{"report": ""}` failure, `{}`, bare
-    punctuation/citations): a failed generation, never accepted as a report."""
-    return _PROSE_WORD_RE.search(body) is None
+    punctuation/citations): a failed generation, never accepted as a report.
+
+    Prose in any script counts: a report written entirely in Malayalam or
+    Hindi is a report, not an empty draft to be replaced by the fallback.
+    """
+    return not has_meaningful_text(body)
 EMPTY_DRAFT_RETRY_NOTE = (
     "\n\nYour previous answer was empty. Write the complete report now: "
     "about {words} words with inline [number] citations."
 )
-_COMPLETE_END_RE = re.compile(r"[.!?)\]*`\"']\s*$")
+_TERMINATORS = re.escape(SENTENCE_TERMINATORS)
+_COMPLETE_END_RE = re.compile(rf"[{_TERMINATORS})\]*`\"']\s*$")
+_LAST_SENTENCE_END_RE = re.compile(rf"[{_TERMINATORS}](?:\s*\[\d+\])*")
 
 
 def trim_partial_sentence(body: str) -> str:
@@ -490,7 +515,7 @@ def trim_partial_sentence(body: str) -> str:
         return head.rstrip()  # dangling heading with no body
     # Last sentence end, extended over any immediately following citations.
     match = None
-    for match in re.finditer(r"[.!?](?:\s*\[\d+\])*", last):
+    for match in _LAST_SENTENCE_END_RE.finditer(last):
         pass
     if match is None:
         return head.rstrip()

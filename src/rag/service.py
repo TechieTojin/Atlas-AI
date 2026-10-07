@@ -11,7 +11,6 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
-import re
 
 from src.config import AtlasConfig
 from src.models.documents import DocumentRecord, DocumentStatus
@@ -30,9 +29,14 @@ class UploadError(Exception):
 
 def sanitize_filename(filename: str) -> str:
     """Keep only the base name with safe characters (no path traversal)."""
+    from src.unicode_text import filename_safe, truncate_clusters
+
     base = os.path.basename(filename.replace("\\", "/")).strip()
-    base = re.sub(r"[^A-Za-z0-9._ -]", "_", base)
-    return base[:120] or "document"
+    # ASCII keeps the original rule; Unicode letters/marks/digits survive
+    # instead of becoming underscores. The name is display-only: raw files
+    # are stored by document id.
+    base = filename_safe(base, extra="._ -", replacement="_")
+    return truncate_clusters(base, 120) or "document"
 
 
 def document_source(doc: DocumentRecord, page: int | None) -> Source:

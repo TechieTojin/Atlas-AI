@@ -265,7 +265,7 @@ def create_app(container: Container | None = None) -> FastAPI:
         if format == "pdf":
             from fastapi.responses import Response
 
-            from src.export.pdf import render_run_pdf, safe_pdf_filename
+            from src.export.pdf import pdf_content_disposition, render_run_pdf
             from src.models.runs import RunStatus
 
             run = c.research_service.get_run(run_id)
@@ -275,9 +275,7 @@ def create_app(container: Container | None = None) -> FastAPI:
             return Response(
                 content=pdf_bytes,
                 media_type="application/pdf",
-                headers={
-                    "Content-Disposition": f'attachment; filename="{safe_pdf_filename(run)}"'
-                },
+                headers={"Content-Disposition": pdf_content_disposition(run)},
             )
         raise HTTPException(
             status_code=400, detail="Supported export formats: markdown, pdf."

@@ -10,8 +10,10 @@ import re
 
 from src.models.research import Source
 from src.models.runs import EvaluationResult
+from src.unicode_text import CANONICAL_CITATION_RE
 
-_CITATION_RE = re.compile(r"\[(\d+)\]")
+# Stored reports use canonical ASCII markers; see src.unicode_text.
+_CITATION_RE = CANONICAL_CITATION_RE
 _SOURCES_HEADING_RE = re.compile(r"^##\s+Sources\s*$", re.MULTILINE)
 _REASONING_MARKERS = ("<think>", "</think>")
 

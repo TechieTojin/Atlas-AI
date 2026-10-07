@@ -220,7 +220,16 @@ def extract_text(html: str) -> str:
     return "\n".join(kept).strip()
 
 
-_WORD_RE = re.compile(r"[a-z0-9]{3,}")
+def _terms(text: str) -> list[str]:
+    """Letter/mark/digit runs of 3+ code points, in any script.
+
+    For ASCII this is exactly the old ``[a-z0-9]{3,}`` on lower-cased text;
+    Malayalam/Hindi query terms are no longer discarded. Matching stays
+    literal: no stemming, translation or embeddings.
+    """
+    from src.unicode_text import words
+
+    return [word for word in words(text.lower()) if len(word) >= 3]
 
 
 def select_relevant_chunks(
@@ -241,10 +250,10 @@ def select_relevant_chunks(
     chunks = chunk_pages("page", [(None, text)], chunk_size=chunk_size, overlap=overlap)
     if not chunks:
         return []
-    terms = set(_WORD_RE.findall(query.lower()))
+    terms = set(_terms(query))
     scored = []
     for index, chunk in enumerate(chunks):
-        words = _WORD_RE.findall(chunk.content.lower())
+        words = _terms(chunk.content)
         hits = [w for w in words if w in terms]
         scored.append((len(set(hits)), len(hits), -index, chunk.content))
     scored.sort(reverse=True)

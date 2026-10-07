@@ -171,5 +171,29 @@ def render_run_pdf(run: ResearchRun, font_path: str = "") -> bytes:
 
 
 def safe_pdf_filename(run: ResearchRun) -> str:
-    base = re.sub(r"[^A-Za-z0-9 _-]", "", run.query)[:40].strip().replace(" ", "-")
+    """``atlas-<question-slug>.pdf``; the run id when the question has no usable characters.
+
+    ASCII questions slug exactly as before. Unicode letters, marks and digits
+    are kept (never cut inside a syllable); Windows-invalid characters,
+    symbols and emoji are dropped.
+    """
+    from src.unicode_text import filename_safe, truncate_clusters
+
+    base = truncate_clusters(filename_safe(run.query), 40).strip().replace(" ", "-")
     return f"atlas-{base or run.id[:8]}.pdf"
+
+
+def pdf_content_disposition(run: ResearchRun) -> str:
+    """Attachment header for the PDF export.
+
+    HTTP header values must be Latin-1, so a Unicode file name goes in the
+    RFC 5987 ``filename*`` parameter with an ASCII ``filename`` fallback.
+    ASCII names produce exactly the old header.
+    """
+    from urllib.parse import quote
+
+    name = safe_pdf_filename(run)
+    if name.isascii():
+        return f'attachment; filename="{name}"'
+    fallback = f"atlas-{run.id[:8]}.pdf"
+    return f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{quote(name, safe='')}"

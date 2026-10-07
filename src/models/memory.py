@@ -11,10 +11,34 @@ from src.models.runs import utcnow
 
 
 def normalize_finding(text: str) -> str:
-    """Deterministic dedupe key for a finding (stable across runs)."""
-    import re
+    """Deterministic dedupe key for a finding (stable across runs).
 
-    return re.sub(r"[^a-z0-9 ]+", "", " ".join(text.lower().split()))
+    Stored in ``findings.text_norm`` (unique per project), so for ASCII text it
+    reproduces the original key exactly: lower-case, whitespace collapsed,
+    every character other than letters, digits and spaces removed. Letters,
+    combining marks and decimal digits of every script are now kept too; the
+    old ``[^a-z0-9 ]`` filter erased Malayalam/Hindi entirely, collapsing
+    unrelated findings onto one key. The finding text itself is never modified.
+
+    Normalization is NFC (canonical composition only), not NFKC, and case
+    folding stays ``lower()``: both leave every key already stored for Latin
+    text unchanged (NFKC would turn "H₂S" into "h2s" where the stored key is
+    "hs"). Subscripts and other non-decimal numerals are dropped as before.
+    """
+    import unicodedata
+
+    collapsed = " ".join(unicodedata.normalize("NFC", text).lower().split())
+    return "".join(
+        char
+        for char in collapsed
+        if char == " "
+        or (char.isascii() and char.isalnum())
+        or (not char.isascii() and unicodedata.category(char) in _KEY_CATEGORIES)
+    )
+
+
+#: Non-ASCII characters a finding key keeps: letters, combining marks, decimal digits.
+_KEY_CATEGORIES = frozenset({"Lu", "Ll", "Lt", "Lm", "Lo", "Mn", "Mc", "Me", "Nd"})
 
 
 class FindingSource(BaseModel):
