@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api, errorMessage } from '../api/client'
+import { useI18n } from '../i18n'
 import type { RunDetail } from '../types'
 
 export interface PlanApprovalProps {
@@ -15,6 +16,7 @@ function splitLines(value: string): string[] {
 }
 
 export function PlanApproval({ run, onUpdated }: PlanApprovalProps) {
+  const { t } = useI18n()
   const plan = run.plan
   const [editing, setEditing] = useState(false)
   const [objective, setObjective] = useState('')
@@ -26,8 +28,8 @@ export function PlanApproval({ run, onUpdated }: PlanApprovalProps) {
   if (!plan) {
     return (
       <section className="card plan-card">
-        <h2>Awaiting plan</h2>
-        <p className="hint-text">The plan has not been created yet.</p>
+        <h2>{t('plan.awaitingTitle')}</h2>
+        <p className="hint-text">{t('plan.notCreated')}</p>
       </section>
     )
   }
@@ -68,15 +70,15 @@ export function PlanApproval({ run, onUpdated }: PlanApprovalProps) {
     const subquestions = splitLines(subquestionsText)
     const searchQueries = splitLines(queriesText)
     if (objective.trim().length === 0) {
-      setError('Objective cannot be empty.')
+      setError(t('plan.objectiveEmpty'))
       return
     }
     if (subquestions.length === 0) {
-      setError('Add at least one subquestion.')
+      setError(t('plan.needSubquestion'))
       return
     }
     if (searchQueries.length === 0) {
-      setError('Add at least one search query.')
+      setError(t('plan.needQuery'))
       return
     }
     setBusy('save')
@@ -97,16 +99,16 @@ export function PlanApproval({ run, onUpdated }: PlanApprovalProps) {
   }
 
   return (
-    <section className="card plan-card" aria-label="Research plan awaiting approval">
+    <section className="card plan-card" aria-label={t('plan.label')}>
       <header className="plan-header">
-        <h2>Review the research plan</h2>
-        <p className="hint-text">Atlas will follow this plan once you approve it.</p>
+        <h2>{t('plan.title')}</h2>
+        <p className="hint-text">{t('plan.hint')}</p>
       </header>
 
       {editing ? (
         <div className="plan-edit">
           <label className="field-label" htmlFor="plan-objective">
-            Objective
+            {t('plan.objective')}
           </label>
           <input
             id="plan-objective"
@@ -116,7 +118,7 @@ export function PlanApproval({ run, onUpdated }: PlanApprovalProps) {
           />
 
           <label className="field-label" htmlFor="plan-subquestions">
-            Subquestions (one per line)
+            {t('plan.subquestionsEdit')}
           </label>
           <textarea
             id="plan-subquestions"
@@ -127,7 +129,7 @@ export function PlanApproval({ run, onUpdated }: PlanApprovalProps) {
           />
 
           <label className="field-label" htmlFor="plan-queries">
-            Search queries (one per line)
+            {t('plan.queriesEdit')}
           </label>
           <textarea
             id="plan-queries"
@@ -139,7 +141,7 @@ export function PlanApproval({ run, onUpdated }: PlanApprovalProps) {
 
           <div className="btn-row">
             <button type="button" className="btn primary" onClick={() => void save()} disabled={busy !== null}>
-              {busy === 'save' ? 'Saving…' : 'Save plan'}
+              {busy === 'save' ? t('common.saving') : t('plan.savePlan')}
             </button>
             <button
               type="button"
@@ -150,23 +152,23 @@ export function PlanApproval({ run, onUpdated }: PlanApprovalProps) {
               }}
               disabled={busy !== null}
             >
-              Discard changes
+              {t('plan.discard')}
             </button>
           </div>
         </div>
       ) : (
         <div className="plan-body">
-          <h3 className="plan-section-title">Objective</h3>
+          <h3 className="plan-section-title">{t('plan.objective')}</h3>
           <p className="plan-objective">{plan.objective}</p>
 
-          <h3 className="plan-section-title">Subquestions</h3>
+          <h3 className="plan-section-title">{t('plan.subquestions')}</h3>
           <ol className="plan-list">
             {plan.subquestions.map((question, index) => (
               <li key={index}>{question}</li>
             ))}
           </ol>
 
-          <h3 className="plan-section-title">Search queries</h3>
+          <h3 className="plan-section-title">{t('plan.queries')}</h3>
           <ol className="plan-list">
             {plan.search_queries.map((query, index) => (
               <li key={index}>{query}</li>
@@ -175,13 +177,13 @@ export function PlanApproval({ run, onUpdated }: PlanApprovalProps) {
 
           <div className="btn-row">
             <button type="button" className="btn primary" onClick={() => void approve()} disabled={busy !== null}>
-              {busy === 'approve' ? 'Approving…' : 'Approve'}
+              {busy === 'approve' ? t('plan.approving') : t('plan.approve')}
             </button>
             <button type="button" className="btn" onClick={startEditing} disabled={busy !== null}>
-              Edit plan
+              {t('plan.editPlan')}
             </button>
             <button type="button" className="btn danger-ghost" onClick={() => void cancel()} disabled={busy !== null}>
-              {busy === 'cancel' ? 'Cancelling…' : 'Cancel run'}
+              {busy === 'cancel' ? t('common.cancelling') : t('plan.cancelRun')}
             </button>
           </div>
         </div>

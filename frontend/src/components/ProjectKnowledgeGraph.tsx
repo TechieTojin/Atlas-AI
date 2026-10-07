@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, errorMessage } from '../api/client'
+import { useI18n, type Translate } from '../i18n'
 import type { ProjectGraph, ProjectGraphEdge, ProjectGraphNode } from '../types'
 
 /**
@@ -217,9 +218,9 @@ function truncate(text: string, limit: number): string {
   return text.length <= limit ? text : `${text.slice(0, limit - 1).trimEnd()}…`
 }
 
-function countsLabel(node: ProjectGraphNode): string {
-  const findings = `${node.finding_count} finding${node.finding_count === 1 ? '' : 's'}`
-  const runs = `${node.support_count} run${node.support_count === 1 ? '' : 's'}`
+function countsLabel(t: Translate, node: ProjectGraphNode): string {
+  const findings = t('projectGraph.findings', { count: node.finding_count })
+  const runs = t('projectGraph.runs', { count: node.support_count })
   return `${findings} · ${runs}`
 }
 
@@ -235,28 +236,31 @@ function Inspector({
   onSelect: (id: string) => void
   onClose: () => void
 }) {
+  const { t } = useI18n()
   const byId = useMemo(() => new Map(graph.nodes.map((entry) => [entry.id, entry])), [graph.nodes])
 
   if (node.type === 'finding') {
     return (
-      <aside className="graph-panel" aria-label="Finding details">
+      <aside className="graph-panel" aria-label={t('projectGraph.findingDetails')}>
         <div className="graph-panel-head">
-          <span className="graph-kind">Finding</span>
+          <span className="graph-kind">{t('projectGraph.finding')}</span>
           <button type="button" className="btn ghost" onClick={onClose}>
-            Close
+            {t('common.close')}
           </button>
         </div>
         <p className="finding-text">{node.text}</p>
-        {node.section && <p className="graph-panel-meta">Section: {node.section}</p>}
+        {node.section && (
+          <p className="graph-panel-meta">{t('projectGraph.section', { section: node.section })}</p>
+        )}
         <p className="graph-panel-meta">
-          From research:{' '}
+          {t('projectGraph.fromResearch')}{' '}
           <Link to={`/runs/${node.source_run_id}`} className="finding-source-link">
-            {node.source_question || 'view run'}
+            {node.source_question || t('common.viewRun')}
           </Link>
         </p>
         {node.sources && node.sources.length > 0 && (
           <>
-            <h4 className="graph-panel-subhead">Sources</h4>
+            <h4 className="graph-panel-subhead">{t('projectGraph.sources')}</h4>
             <ul className="graph-source-list">
               {node.sources.map((source) => (
                 <li key={source.url}>
@@ -290,24 +294,28 @@ function Inspector({
     .sort((a, b) => b.weight - a.weight)
 
   return (
-    <aside className="graph-panel" aria-label="Concept details">
+    <aside className="graph-panel" aria-label={t('projectGraph.conceptDetails')}>
       <div className="graph-panel-head">
-        <span className="graph-kind">{node.type === 'project' ? 'Project' : 'Concept'}</span>
+        <span className="graph-kind">
+          {node.type === 'project' ? t('projectGraph.project') : t('projectGraph.concept')}
+        </span>
         <button type="button" className="btn ghost" onClick={onClose}>
-          Close
+          {t('common.close')}
         </button>
       </div>
       <h3 className="graph-panel-title">{node.label}</h3>
       {node.type === 'concept' && (
         <p className="graph-panel-meta">
-          Supported by {node.finding_count} finding{node.finding_count === 1 ? '' : 's'} across{' '}
-          {node.support_count} research run{node.support_count === 1 ? '' : 's'}.
+          {t('projectGraph.supportedBy', {
+            findings: t('projectGraph.findings', { count: node.finding_count }),
+            count: node.support_count,
+          })}
         </p>
       )}
 
       {related.length > 0 && (
         <>
-          <h4 className="graph-panel-subhead">Related concepts</h4>
+          <h4 className="graph-panel-subhead">{t('projectGraph.relatedConcepts')}</h4>
           <ul className="graph-related">
             {related.map((entry) => (
               <li key={entry.node.id}>
@@ -319,7 +327,7 @@ function Inspector({
                   {entry.node.label}
                 </button>
                 <span className="history-meta">
-                  {entry.weight} shared finding{entry.weight === 1 ? '' : 's'}
+                  {t('projectGraph.sharedFindings', { count: entry.weight })}
                 </span>
               </li>
             ))}
@@ -329,14 +337,14 @@ function Inspector({
 
       {supporting.length > 0 && (
         <>
-          <h4 className="graph-panel-subhead">Supporting findings</h4>
+          <h4 className="graph-panel-subhead">{t('projectGraph.supportingFindings')}</h4>
           <ul className="graph-finding-list">
             {supporting.map((finding) => (
               <li key={finding.id}>
                 <p className="finding-text">{truncate(finding.text ?? finding.label, 200)}</p>
                 <p className="graph-panel-meta">
                   <Link to={`/runs/${finding.source_run_id}`} className="finding-source-link">
-                    {finding.source_question || 'view run'}
+                    {finding.source_question || t('common.viewRun')}
                   </Link>
                 </p>
               </li>
@@ -349,6 +357,7 @@ function Inspector({
 }
 
 export function ProjectGraphExplorer({ graph }: { graph: ProjectGraph }) {
+  const { t } = useI18n()
   const [view, setView] = useState<ViewMode>('concepts')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
@@ -493,29 +502,31 @@ export function ProjectGraphExplorer({ graph }: { graph: ProjectGraph }) {
     <div className={`project-graph${selected ? ' with-panel' : ''}`}>
       <div className="graph-toolbar">
         <p className="graph-stats">
-          {graph.stats.concepts} concept{graph.stats.concepts === 1 ? '' : 's'} ·{' '}
-          {graph.stats.findings} finding{graph.stats.findings === 1 ? '' : 's'} · {graph.stats.runs}{' '}
-          research run{graph.stats.runs === 1 ? '' : 's'}
+          {[
+            t('projectGraph.statsConcepts', { count: graph.stats.concepts }),
+            t('projectGraph.findings', { count: graph.stats.findings }),
+            t('projectGraph.statsRuns', { count: graph.stats.runs }),
+          ].join(' · ')}
         </p>
         <div className="graph-controls">
           <label className="graph-search">
-            <span className="visually-hidden">Search the graph</span>
+            <span className="visually-hidden">{t('projectGraph.searchLabel')}</span>
             <input
               type="search"
-              placeholder="Search concepts…"
+              placeholder={t('projectGraph.searchPlaceholder')}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              aria-label="Search the graph"
+              aria-label={t('projectGraph.searchLabel')}
             />
           </label>
-          <div className="segmented" role="group" aria-label="Graph detail">
+          <div className="segmented" role="group" aria-label={t('projectGraph.detailLabel')}>
             <button
               type="button"
               className={view === 'concepts' ? 'active' : ''}
               aria-pressed={view === 'concepts'}
               onClick={() => setView('concepts')}
             >
-              Concepts
+              {t('projectGraph.viewConcepts')}
             </button>
             <button
               type="button"
@@ -523,39 +534,39 @@ export function ProjectGraphExplorer({ graph }: { graph: ProjectGraph }) {
               aria-pressed={view === 'all'}
               onClick={() => setView('all')}
             >
-              Concepts + findings
+              {t('projectGraph.viewAll')}
             </button>
           </div>
           <button type="button" className="btn" onClick={fit}>
-            Fit view
+            {t('projectGraph.fit')}
           </button>
           <button type="button" className="btn" onClick={reset}>
-            Reset
+            {t('projectGraph.reset')}
           </button>
         </div>
       </div>
 
       <div className="graph-subbar">
-        <ul className="graph-legend" aria-label="Legend">
+        <ul className="graph-legend" aria-label={t('projectGraph.legend')}>
           <li>
             <span className="legend-swatch kind-project" aria-hidden="true" />
-            Project
+            {t('projectGraph.project')}
           </li>
           <li>
             <span className="legend-swatch kind-concept" aria-hidden="true" />
-            Concept
+            {t('projectGraph.concept')}
           </li>
           <li>
             <span className="legend-swatch kind-finding" aria-hidden="true" />
-            Finding
+            {t('projectGraph.finding')}
           </li>
-          <li className="legend-note">Card size reflects supporting findings</li>
+          <li className="legend-note">{t('projectGraph.legendNote')}</li>
         </ul>
         {normalized.length > 0 && (
           <p className="graph-search-result" role="status">
             {matches.length === 0
-              ? `Nothing in this graph matches “${query.trim()}”.`
-              : `${matches.length} match${matches.length === 1 ? '' : 'es'} for “${query.trim()}”.`}
+              ? t('projectGraph.noMatches', { query: query.trim() })
+              : t('projectGraph.matches', { count: matches.length, query: query.trim() })}
           </p>
         )}
       </div>
@@ -566,7 +577,7 @@ export function ProjectGraphExplorer({ graph }: { graph: ProjectGraph }) {
             className="graph-canvas"
             viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
             role="img"
-            aria-label={`Knowledge graph for ${graph.project.name}`}
+            aria-label={t('projectGraph.canvasLabel', { name: graph.project.name })}
             onWheel={onWheel}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
@@ -647,10 +658,10 @@ export function ProjectGraphExplorer({ graph }: { graph: ProjectGraph }) {
 
                 const accessibleName =
                   node.type === 'finding'
-                    ? `Finding: ${truncate(node.text ?? node.label, 80)}`
+                    ? t('projectGraph.findingLabel', { text: truncate(node.text ?? node.label, 80) })
                     : node.type === 'project'
-                      ? `Project: ${node.label}`
-                      : `${node.label}, ${countsLabel(node)}`
+                      ? t('projectGraph.projectLabel', { name: node.label })
+                      : `${node.label}, ${countsLabel(t, node)}`
 
                 const common = {
                   className,
@@ -694,7 +705,7 @@ export function ProjectGraphExplorer({ graph }: { graph: ProjectGraph }) {
                     />
                     {isRoot && (
                       <text className="graph-eyebrow" y={-height / 2 + 19} textAnchor="middle">
-                        PROJECT
+                        {t('projectGraph.projectEyebrow')}
                       </text>
                     )}
                     {lines.map((line, index) => (
@@ -713,7 +724,7 @@ export function ProjectGraphExplorer({ graph }: { graph: ProjectGraph }) {
                         y={textTop + lines.length * LINE_HEIGHT + 2}
                         textAnchor="middle"
                       >
-                        {countsLabel(node)}
+                        {countsLabel(t, node)}
                       </text>
                     )}
                   </g>
@@ -734,15 +745,9 @@ export function ProjectGraphExplorer({ graph }: { graph: ProjectGraph }) {
               <strong>{hovered.node.label}</strong>
               {hovered.node.type === 'concept' && (
                 <>
-                  <span>
-                    {hovered.node.finding_count} supporting finding
-                    {hovered.node.finding_count === 1 ? '' : 's'}
-                  </span>
-                  <span>
-                    {hovered.node.support_count} research run
-                    {hovered.node.support_count === 1 ? '' : 's'}
-                  </span>
-                  <span className="graph-tooltip-hint">Click to inspect</span>
+                  <span>{t('projectGraph.tooltipFindings', { count: hovered.node.finding_count })}</span>
+                  <span>{t('projectGraph.tooltipRuns', { count: hovered.node.support_count })}</span>
+                  <span className="graph-tooltip-hint">{t('projectGraph.clickToInspect')}</span>
                 </>
               )}
             </div>
@@ -769,6 +774,7 @@ export function ProjectKnowledgeGraph({
   projectId: string
   onStartResearch: () => void
 }) {
+  const { t } = useI18n()
   const [graph, setGraph] = useState<ProjectGraph | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -793,7 +799,7 @@ export function ProjectKnowledgeGraph({
     return (
       <div className="page-state" role="status">
         <span className="spinner" aria-hidden="true" />
-        <p>Loading knowledge graph…</p>
+        <p>{t('projectGraph.loading')}</p>
       </div>
     )
   }
@@ -802,10 +808,10 @@ export function ProjectKnowledgeGraph({
     return (
       <div className="page-state">
         <p className="error-text" role="alert">
-          {error ?? 'This knowledge graph could not be loaded.'}
+          {error ?? t('projectGraph.loadFailed')}
         </p>
         <button type="button" className="btn" onClick={() => void load()}>
-          Try again
+          {t('common.tryAgain')}
         </button>
       </div>
     )
@@ -816,13 +822,10 @@ export function ProjectKnowledgeGraph({
   if (graph.stats.findings === 0) {
     return (
       <section className="card empty-project">
-        <h3>No project knowledge yet</h3>
-        <p className="hint-text">
-          The graph is built from the findings of completed research in this project. Run a
-          question here and its concepts will appear.
-        </p>
+        <h3>{t('projectGraph.emptyTitle')}</h3>
+        <p className="hint-text">{t('projectGraph.emptyText')}</p>
         <button type="button" className="btn primary" onClick={onStartResearch}>
-          Start research
+          {t('common.startResearch')}
         </button>
       </section>
     )
@@ -831,14 +834,10 @@ export function ProjectKnowledgeGraph({
   if (graph.stats.concepts === 0) {
     return (
       <section className="card empty-project">
-        <h3>No graphable findings are available yet</h3>
-        <p className="hint-text">
-          This project has {graph.stats.findings} finding
-          {graph.stats.findings === 1 ? '' : 's'}, but no concept recurs often enough to chart
-          yet. More research on related questions will connect them.
-        </p>
+        <h3>{t('projectGraph.noConceptsTitle')}</h3>
+        <p className="hint-text">{t('projectGraph.noConceptsText', { count: graph.stats.findings })}</p>
         <button type="button" className="btn primary" onClick={onStartResearch}>
-          Continue research
+          {t('common.continueResearch')}
         </button>
       </section>
     )

@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, errorMessage, exportUrl, notifyRunsChanged } from '../api/client'
 import { useTemplates } from '../hooks/useTemplates'
+import { templateDescription, templateEntryName, useI18n } from '../i18n'
 import type { RunDetail } from '../types'
 import { DownloadIcon } from './icons'
 
 /** Small export menu offering markdown and PDF downloads. */
 export function ExportMenu({ runId }: { runId: string }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
@@ -36,10 +38,10 @@ export function ExportMenu({ runId }: { runId: string }) {
         onClick={() => setOpen((value) => !value)}
       >
         <DownloadIcon size={14} />
-        <span>Export</span>
+        <span>{t('common.export')}</span>
       </button>
       {open && (
-        <div className="menu" role="menu" aria-label="Export formats">
+        <div className="menu" role="menu" aria-label={t('runActions.exportFormats')}>
           <a
             role="menuitem"
             className="menu-item"
@@ -69,6 +71,7 @@ const CUSTOM_MAX_LENGTH = 2000
 /** "Regenerate report" action: pick a template and re-run synthesis only. */
 export function RegenerateAction({ run }: { run: RunDetail }) {
   const navigate = useNavigate()
+  const { t, uiLanguage } = useI18n()
   const { templates } = useTemplates()
   const [open, setOpen] = useState(false)
   const [template, setTemplate] = useState(run.template ?? 'STANDARD')
@@ -102,16 +105,14 @@ export function RegenerateAction({ run }: { run: RunDetail }) {
   return (
     <div className="menu-wrap">
       <button type="button" className="btn" onClick={() => setOpen((value) => !value)}>
-        Regenerate report
+        {t('runActions.regenerateTrigger')}
       </button>
       {open && (
-        <div className="regenerate-card card" role="dialog" aria-label="Regenerate report">
-          <h2>Regenerate report</h2>
-          <p className="hint-text">
-            Re-run synthesis over the same evidence with a different report template.
-          </p>
+        <div className="regenerate-card card" role="dialog" aria-label={t('runActions.regenerate')}>
+          <h2>{t('runActions.regenerate')}</h2>
+          <p className="hint-text">{t('runActions.regenerateHint')}</p>
           <label className="field-label" htmlFor="regen-template">
-            Template
+            {t('runActions.template')}
           </label>
           <select
             id="regen-template"
@@ -122,15 +123,15 @@ export function RegenerateAction({ run }: { run: RunDetail }) {
           >
             {templates.map((entry) => (
               <option key={entry.id} value={entry.id}>
-                {entry.name}
+                {templateEntryName(t, uiLanguage, entry)}
               </option>
             ))}
           </select>
-          {selected && <p className="hint-text">{selected.description}</p>}
+          {selected && <p className="hint-text">{templateDescription(t, uiLanguage, selected, CUSTOM_MAX_LENGTH)}</p>}
           {isCustom && (
             <>
               <label className="field-label" htmlFor="regen-custom">
-                Custom instructions (required)
+                {t('runActions.customRequired')}
               </label>
               <textarea
                 id="regen-custom"
@@ -142,7 +143,7 @@ export function RegenerateAction({ run }: { run: RunDetail }) {
                 disabled={busy}
               />
               <p className="hint-text">
-                {custom.length}/{CUSTOM_MAX_LENGTH} characters
+                {t('common.characterCount', { count: String(custom.length), max: String(CUSTOM_MAX_LENGTH) })}
               </p>
             </>
           )}
@@ -153,10 +154,10 @@ export function RegenerateAction({ run }: { run: RunDetail }) {
               onClick={() => void handleRegenerate()}
               disabled={busy || !customValid}
             >
-              {busy ? 'Regenerating…' : 'Regenerate'}
+              {busy ? t('runActions.regenerating') : t('runActions.regenerateButton')}
             </button>
             <button type="button" className="btn" onClick={() => setOpen(false)} disabled={busy}>
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
           {error && (

@@ -19,8 +19,8 @@ import {
 } from '../components/icons'
 import { EyebrowPill, FeaturePill } from '../components/PageHero'
 import { useDocuments } from '../hooks/useDocuments'
+import { agoLabel, useI18n } from '../i18n'
 import type { DocumentRecord } from '../types'
-import { formatBytes, relativeTime } from '../utils/format'
 
 const MAX_SIZE_BYTES = 25 * 1024 * 1024
 const ACCEPTED_EXTENSIONS = ['.pdf', '.txt', '.md']
@@ -30,11 +30,18 @@ type SortKey = 'uploaded' | 'name' | 'size'
 type Layout = 'list' | 'grid'
 
 const FEATURES = [
-  { icon: FileTextIcon, label: 'Multiple Formats', detail: 'PDF, TXT, MD and more' },
-  { icon: ShieldCheckIcon, label: 'Secure & Private', detail: 'Your data stays yours' },
-  { icon: SparkleIcon, label: 'Instant Analysis', detail: 'Get insights in seconds' },
-  { icon: FolderIcon, label: 'Organized Workspace', detail: 'Keep everything in one place' },
-]
+  { icon: FileTextIcon, label: 'documents.features.formats', detail: 'documents.features.formatsDetail' },
+  { icon: ShieldCheckIcon, label: 'documents.features.private', detail: 'documents.features.privateDetail' },
+  { icon: SparkleIcon, label: 'documents.features.analysis', detail: 'documents.features.analysisDetail' },
+  { icon: FolderIcon, label: 'documents.features.workspace', detail: 'documents.features.workspaceDetail' },
+] as const
+
+const TYPE_FILTERS = [
+  ['all', 'documents.typeAll'],
+  ['pdf', null],
+  ['txt', 'documents.typeText'],
+  ['md', 'documents.typeMarkdown'],
+] as const
 
 function isAccepted(filename: string): boolean {
   const lower = filename.toLowerCase()
@@ -54,6 +61,7 @@ function sortDocuments(documents: DocumentRecord[], sort: SortKey): DocumentReco
 }
 
 export function DocumentsPage() {
+  const { t, format } = useI18n()
   const { documents, loading, error, upload, remove } = useDocuments()
   const [uploading, setUploading] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -88,11 +96,11 @@ export function DocumentsPage() {
   const handleFile = async (file: File) => {
     setUploadError(null)
     if (!isAccepted(file.name)) {
-      setUploadError('Unsupported file type. Upload a .pdf, .txt, or .md file.')
+      setUploadError(t('documents.unsupported'))
       return
     }
     if (file.size > MAX_SIZE_BYTES) {
-      setUploadError('File is too large. The maximum size is 25 MB.')
+      setUploadError(t('documents.tooLarge'))
       return
     }
     setUploading(file.name)
@@ -107,7 +115,7 @@ export function DocumentsPage() {
   }
 
   const handleDelete = async (document: DocumentRecord) => {
-    if (!window.confirm(`Delete “${document.filename}”? This cannot be undone.`)) return
+    if (!window.confirm(t('documents.confirmDelete', { name: document.filename }))) return
     setDeleteError(null)
     try {
       await remove(document.id)
@@ -120,13 +128,7 @@ export function DocumentsPage() {
   const handleDeleteSelected = async () => {
     const targets = documents.filter((document) => selected.includes(document.id))
     if (targets.length === 0) return
-    if (
-      !window.confirm(
-        `Delete ${targets.length} document${targets.length === 1 ? '' : 's'}? This cannot be undone.`,
-      )
-    ) {
-      return
-    }
+    if (!window.confirm(t('documents.confirmDeleteMany', { count: targets.length }))) return
     setDeleteError(null)
     for (const document of targets) {
       try {
@@ -161,17 +163,15 @@ export function DocumentsPage() {
         <div className="page-hero-copy">
           <div className="page-hero-eyebrow">
             <EyebrowPill icon={BookIcon} uppercase>
-              Your Knowledge Library
+              {t('documents.eyebrow')}
             </EyebrowPill>
           </div>
-          <h1 className="display-title">Documents</h1>
-          <p className="page-hero-subtitle">
-            Upload PDFs, text, or markdown files to research against your own sources.
-          </p>
-          <ul className="feature-pill-row" aria-label="Library features">
+          <h1 className="display-title">{t('documents.title')}</h1>
+          <p className="page-hero-subtitle">{t('documents.subtitle')}</p>
+          <ul className="feature-pill-row" aria-label={t('documents.featuresLabel')}>
             {FEATURES.map(({ icon, label, detail }) => (
               <li key={label}>
-                <FeaturePill icon={icon} label={label} detail={detail} variant="square" />
+                <FeaturePill icon={icon} label={t(label)} detail={t(detail)} variant="square" />
               </li>
             ))}
           </ul>
@@ -198,17 +198,17 @@ export function DocumentsPage() {
         <CloudUploadIcon size={30} className="dropzone-icon" />
         {uploading ? (
           <p className="dropzone-text" role="status">
-            <span className="spinner small" aria-hidden="true" /> Uploading {uploading}…
+            <span className="spinner small" aria-hidden="true" /> {t('documents.uploading', { name: uploading })}
           </p>
         ) : (
           <>
             <p className="dropzone-text">
-              Drag and drop a file here, or{' '}
+              {t('documents.dropText')}{' '}
               <label className="file-label" htmlFor="document-upload">
-                browse
+                {t('documents.browse')}
               </label>
             </p>
-            <p className="dropzone-hint">PDF, TXT, MD — up to 25 MB</p>
+            <p className="dropzone-hint">{t('documents.dropHint')}</p>
           </>
         )}
         <input
@@ -217,7 +217,7 @@ export function DocumentsPage() {
           type="file"
           accept=".pdf,.txt,.md"
           className="visually-hidden"
-          aria-label="Upload document"
+          aria-label={t('documents.uploadLabel')}
           disabled={uploading !== null}
           onChange={(event) => {
             const file = event.target.files?.[0]
@@ -237,30 +237,23 @@ export function DocumentsPage() {
         </p>
       )}
 
-      <section className="doc-toolbar" aria-label="Find documents">
+      <section className="doc-toolbar" aria-label={t('documents.findLabel')}>
         <div className="search-field compact">
           <SearchIcon size={17} className="search-field-icon" />
           <label className="visually-hidden" htmlFor={searchId}>
-            Search documents
+            {t('documents.searchLabel')}
           </label>
           <input
             id={searchId}
             type="search"
             className="search-input"
-            placeholder="Search documents by name, type, or content..."
+            placeholder={t('documents.searchPlaceholder')}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
         </div>
-        <div className="filter-tabs" role="group" aria-label="File type">
-          {(
-            [
-              ['all', 'All Files'],
-              ['pdf', 'PDF'],
-              ['txt', 'Text'],
-              ['md', 'Markdown'],
-            ] as [TypeFilter, string][]
-          ).map(([value, label]) => (
+        <div className="filter-tabs" role="group" aria-label={t('documents.typeLabel')}>
+          {TYPE_FILTERS.map(([value, label]) => (
             <button
               key={value}
               type="button"
@@ -269,13 +262,13 @@ export function DocumentsPage() {
               onClick={() => setTypeFilter(value)}
             >
               {typeFilter === value && value === 'all' && <span aria-hidden="true">✓</span>}
-              {label}
+              {label ? t(label) : 'PDF'}
             </button>
           ))}
         </div>
         <div className="toolbar-end">
           <label className="sort-control" htmlFor={sortId}>
-            <span className="sort-control-label">Sort by:</span>
+            <span className="sort-control-label">{t('common.sortBy')}</span>
             <span className="sort-select-wrap">
               <select
                 id={sortId}
@@ -283,19 +276,19 @@ export function DocumentsPage() {
                 value={sort}
                 onChange={(event) => setSort(event.target.value as SortKey)}
               >
-                <option value="uploaded">Last Updated</option>
-                <option value="name">Name</option>
-                <option value="size">Size</option>
+                <option value="uploaded">{t('common.lastUpdated')}</option>
+                <option value="name">{t('common.name')}</option>
+                <option value="size">{t('documents.sortSize')}</option>
               </select>
               <ChevronDownIcon size={15} className="sort-select-chevron" />
             </span>
           </label>
-          <div className="view-toggle" role="group" aria-label="Layout">
+          <div className="view-toggle" role="group" aria-label={t('common.layout')}>
             <button
               type="button"
               className={`view-btn${layout === 'list' ? ' selected' : ''}`}
               aria-pressed={layout === 'list'}
-              aria-label="List view"
+              aria-label={t('common.listView')}
               onClick={() => setLayout('list')}
             >
               <ListIcon size={17} />
@@ -304,7 +297,7 @@ export function DocumentsPage() {
               type="button"
               className={`view-btn${layout === 'grid' ? ' selected' : ''}`}
               aria-pressed={layout === 'grid'}
-              aria-label="Grid view"
+              aria-label={t('common.gridView')}
               onClick={() => setLayout('grid')}
             >
               <GridIcon size={17} />
@@ -315,15 +308,13 @@ export function DocumentsPage() {
 
       {selected.length > 0 && (
         <div className="selection-bar" role="status">
-          <span>
-            {selected.length} selected
-          </span>
+          <span>{t('documents.selected', { count: selected.length })}</span>
           <button type="button" className="btn danger-ghost compact" onClick={() => void handleDeleteSelected()}>
             <TrashIcon size={14} />
-            Delete selected
+            {t('documents.deleteSelected')}
           </button>
           <button type="button" className="link-btn" onClick={() => setSelected([])}>
-            Clear
+            {t('common.clear')}
           </button>
         </div>
       )}
@@ -331,16 +322,16 @@ export function DocumentsPage() {
       {loading && (
         <div className="page-state" role="status">
           <span className="spinner" aria-hidden="true" />
-          <p>Loading documents…</p>
+          <p>{t('documents.loading')}</p>
         </div>
       )}
       {error && !loading && <p className="error-text">{error}</p>}
 
       {!loading && !error && documents.length === 0 && (
-        <p className="empty-note">No documents yet. Upload one to get started.</p>
+        <p className="empty-note">{t('documents.empty')}</p>
       )}
       {!loading && !error && documents.length > 0 && visible.length === 0 && (
-        <p className="empty-note">No documents match your filters.</p>
+        <p className="empty-note">{t('documents.noMatches')}</p>
       )}
 
       {visible.length > 0 && layout === 'list' && (
@@ -363,14 +354,17 @@ export function DocumentsPage() {
               </div>
               <span className="doc-card-name">{document.filename}</span>
               <span className="doc-card-meta">
-                {formatBytes(document.size_bytes)} · {document.chunk_count || 0} chunks · uploaded{' '}
-                {relativeTime(document.uploaded_at)}
+                {t('documents.cardMeta', {
+                  size: format.bytes(document.size_bytes),
+                  count: document.chunk_count || 0,
+                  time: agoLabel(t, format, document.uploaded_at),
+                })}
               </span>
               <div className="doc-card-actions">
                 <button
                   type="button"
                   className="icon-btn danger"
-                  aria-label={`Delete ${document.filename}`}
+                  aria-label={t('common.deleteNamed', { name: document.filename })}
                   onClick={() => void handleDelete(document)}
                 >
                   <TrashIcon size={15} />
@@ -381,7 +375,7 @@ export function DocumentsPage() {
         </div>
       )}
 
-      <section className="promo-panel" aria-label="Upload more">
+      <section className="promo-panel" aria-label={t('documents.promoLabel')}>
         <div className="promo-art" aria-hidden="true">
           <span className="promo-art-doc">
             <FileTextIcon size={28} />
@@ -389,15 +383,12 @@ export function DocumentsPage() {
           <SparklesIcon size={22} className="promo-art-sparkle" />
         </div>
         <div className="promo-copy">
-          <h2 className="promo-title">Turn your documents into insights</h2>
-          <p className="promo-text">
-            Upload research papers, notes, or reports and ask questions to get instant, accurate
-            answers powered by AI.
-          </p>
+          <h2 className="promo-title">{t('documents.promoTitle')}</h2>
+          <p className="promo-text">{t('documents.promoText')}</p>
         </div>
         <button type="button" className="btn primary glow large" onClick={browse} disabled={uploading !== null}>
           <UploadIcon size={16} />
-          <span>Upload More Files</span>
+          <span>{t('documents.uploadMore')}</span>
         </button>
       </section>
     </div>

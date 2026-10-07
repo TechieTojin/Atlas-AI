@@ -102,11 +102,11 @@ export function wordCount(markdown: string): number {
   return text.split(/\s+/).filter(Boolean).length
 }
 
-export function readingTimeLabel(markdown: string): string {
+/** Estimated reading time in whole minutes (at least 1), or null for an empty report. */
+export function readingMinutes(markdown: string): number | null {
   const words = wordCount(markdown)
-  if (words === 0) return '—'
-  const minutes = Math.max(1, Math.round(words / READING_WPM))
-  return `${minutes} min`
+  if (words === 0) return null
+  return Math.max(1, Math.round(words / READING_WPM))
 }
 
 const STOPWORDS = new Set([

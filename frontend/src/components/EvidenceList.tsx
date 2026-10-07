@@ -1,29 +1,25 @@
 import { useState } from 'react'
+import { tierLabel, useI18n } from '../i18n'
 import type { Evidence } from '../types'
-import { TIER_LABELS, TierDot } from './QualityBadge'
-import type { QualityTier } from '../types'
+import { TierDot } from './QualityBadge'
 
 const CLAMP_LENGTH = 280
 
-const ORIGIN_LABELS: Record<Evidence['origin'], string> = {
-  web: 'WEB',
-  document: 'DOCUMENT',
-  memory: 'MEMORY',
-}
-
 export function ExtractionBadge({ extraction }: { extraction: Evidence['extraction'] }) {
+  const { t } = useI18n()
   if (extraction === 'full_page') {
-    return <span className="badge extraction-badge full-page">Full page</span>
+    return <span className="badge extraction-badge full-page">{t('evidence.fullPage')}</span>
   }
   if (extraction === 'fallback_snippet') {
-    return <span className="badge extraction-badge fallback">Snippet fallback</span>
+    return <span className="badge extraction-badge fallback">{t('evidence.snippetFallback')}</span>
   }
   return null
 }
 
 export function EvidenceTierBadge({ tier }: { tier: string | null | undefined }) {
+  const { t } = useI18n()
   if (!tier) return null
-  const label = TIER_LABELS[tier as QualityTier] ?? tier
+  const label = tierLabel(t, tier)
   return (
     <span className={`quality-badge tier-${tier}`}>
       <TierDot tier={tier} />
@@ -33,6 +29,7 @@ export function EvidenceTierBadge({ tier }: { tier: string | null | undefined })
 }
 
 function EvidenceCard({ item }: { item: Evidence }) {
+  const { t, format } = useI18n()
   const [expanded, setExpanded] = useState(false)
   const needsClamp = item.content.length > CLAMP_LENGTH
   const snippet =
@@ -42,25 +39,29 @@ function EvidenceCard({ item }: { item: Evidence }) {
     <article className="evidence-card">
       <header className="evidence-header">
         <span className="evidence-badges">
-          <span className={`badge origin-${item.origin}`}>{ORIGIN_LABELS[item.origin]}</span>
+          <span className={`badge origin-${item.origin}`}>{t(`evidence.origin.${item.origin}`)}</span>
           <ExtractionBadge extraction={item.extraction} />
           <EvidenceTierBadge tier={item.quality_tier} />
         </span>
         {item.relevance_score !== null && (
-          <span className="evidence-score" title="Relevance score">
-            Relevance {item.relevance_score.toFixed(2)}
+          <span className="evidence-score" title={t('evidence.relevanceTitle')}>
+            {t('evidence.relevance', {
+              score: format.number(item.relevance_score, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            })}
           </span>
         )}
       </header>
       <p className="evidence-source">
         {item.source_title}
-        {item.filename ? ` — ${item.filename}${item.page !== null ? `, p. ${item.page}` : ''}` : ''}
+        {item.filename
+          ? ` — ${item.filename}${item.page !== null ? t('sourceDrawer.page', { page: String(item.page) }) : ''}`
+          : ''}
       </p>
-      <p className="evidence-query">Found by: “{item.query}”</p>
+      <p className="evidence-query">{t('sourceDrawer.foundBy', { query: item.query })}</p>
       <p className="evidence-snippet">{snippet}</p>
       {needsClamp && (
         <button type="button" className="link-btn" onClick={() => setExpanded((value) => !value)}>
-          {expanded ? 'Show less' : 'Show more'}
+          {expanded ? t('evidence.showLess') : t('evidence.showMore')}
         </button>
       )}
     </article>
@@ -68,8 +69,9 @@ function EvidenceCard({ item }: { item: Evidence }) {
 }
 
 export function EvidenceList({ evidence }: { evidence: Evidence[] }) {
+  const { t } = useI18n()
   if (evidence.length === 0) {
-    return <p className="empty-note">No evidence was collected for this run.</p>
+    return <p className="empty-note">{t('evidence.empty')}</p>
   }
   return (
     <div className="evidence-list">

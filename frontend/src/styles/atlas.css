@@ -5512,3 +5512,331 @@ a {
     transition: none;
   }
 }
+
+/* Language controls --------------------------------------------------- */
+
+/* Indic scripts ------------------------------------------------------- */
+
+/* Malayalam and Devanagari letters join into conjuncts; any tracking pulls
+   them apart, and tight Latin display leading clips their tall vowel signs.
+   Keyed on the document/element language so English keeps its exact design.
+   Uppercasing is harmless here (these scripts have no case) and is left as is. */
+:lang(ml),
+:lang(hi) {
+  letter-spacing: normal !important;
+}
+
+:lang(ml) .display-title,
+:lang(hi) .display-title,
+:lang(ml) .script-note,
+:lang(hi) .script-note,
+:lang(ml) .language-onboarding-title,
+:lang(hi) .language-onboarding-title {
+  line-height: 1.32;
+}
+
+.sidebar-footer-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sidebar-footer-controls .theme-toggle {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.language-switcher {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.language-switcher-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 128px;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.language-switcher-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.language-switcher-btn svg {
+  flex-shrink: 0;
+}
+
+.language-switcher-btn:hover,
+.language-switcher-btn[aria-expanded='true'] {
+  background: rgba(85, 245, 138, 0.06);
+  color: var(--text);
+}
+
+.language-switcher-btn:focus-visible,
+.language-menu-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.language-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 40;
+  width: 214px;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid rgba(85, 245, 138, 0.28);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 40%), rgba(9, 22, 18, 0.96);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 0 24px rgba(85, 245, 138, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.language-menu-item {
+  display: grid;
+  grid-template-columns: 1fr auto 18px;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.language-menu-item:hover {
+  background: rgba(85, 245, 138, 0.07);
+}
+
+.language-menu-item.selected {
+  border-color: rgba(85, 245, 138, 0.35);
+  background: rgba(85, 245, 138, 0.1);
+  color: #7dffab;
+}
+
+.language-menu-english {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.language-menu-check {
+  color: var(--accent);
+}
+
+/* First-launch dialog */
+.language-onboarding {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+  background:
+    radial-gradient(640px 420px at 50% 30%, rgba(46, 200, 106, 0.18), transparent 70%),
+    rgba(3, 9, 7, 0.82);
+  backdrop-filter: blur(8px);
+}
+
+.language-onboarding-card {
+  width: 100%;
+  max-width: 520px;
+  padding: 34px 32px 28px;
+  border-radius: 22px;
+  text-align: center;
+  border-color: rgba(85, 245, 138, 0.3);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 40px rgba(85, 245, 138, 0.1);
+}
+
+.language-onboarding-mark {
+  filter: drop-shadow(0 0 14px rgba(85, 245, 138, 0.5));
+}
+
+.language-onboarding-title {
+  margin: 12px 0 6px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 36px;
+  line-height: 1.15;
+  color: var(--text);
+}
+
+.language-onboarding-subtitle {
+  margin: 0 0 22px;
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+.language-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.language-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 13px 40px 13px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(200, 230, 215, 0.14);
+  background: rgba(255, 255, 255, 0.035);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease;
+}
+
+.language-option:hover {
+  border-color: rgba(85, 245, 138, 0.4);
+}
+
+.language-option.selected {
+  border-color: rgba(85, 245, 138, 0.8);
+  background: linear-gradient(135deg, rgba(60, 220, 120, 0.18), rgba(85, 245, 138, 0.05));
+  box-shadow: 0 0 24px rgba(85, 245, 138, 0.16);
+}
+
+.language-option:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.language-option-native {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.language-option-english {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.language-option-check {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent);
+}
+
+.language-onboarding-hint {
+  margin: 18px 0 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.language-onboarding-continue {
+  min-width: 180px;
+  justify-content: center;
+}
+
+@media (max-width: 480px) {
+  .language-options {
+    grid-template-columns: 1fr;
+  }
+
+  .language-onboarding-card {
+    padding: 28px 20px 22px;
+  }
+}
+
+[data-theme='light'] .language-menu {
+  background: rgba(255, 255, 255, 0.97);
+  border-color: var(--border-strong);
+  box-shadow: 0 18px 44px rgba(16, 60, 36, 0.14);
+}
+
+[data-theme='light'] .language-menu-item.selected {
+  color: var(--accent);
+}
+
+[data-theme='light'] .language-onboarding {
+  background:
+    radial-gradient(640px 420px at 50% 30%, rgba(46, 200, 106, 0.16), transparent 70%),
+    rgba(240, 246, 242, 0.86);
+}
+
+[data-theme='light'] .language-option {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: var(--border-strong);
+}
+
+/* Indic words are long single units at display sizes ("പ്രോജക്റ്റുകൾ"), and
+   their labels run wider than the English the narrow layouts were tuned for.
+   English is untouched; these only apply to Malayalam and Hindi pages. */
+@media (max-width: 600px) {
+  :lang(ml) .display-title,
+  :lang(hi) .display-title {
+    font-size: clamp(34px, 10vw, 54px);
+    overflow-wrap: anywhere;
+  }
+
+  :lang(ml) .documents-hero .feature-pill-row,
+  :lang(hi) .documents-hero .feature-pill-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :lang(ml) .documents-hero .feature-pill-label,
+  :lang(ml) .documents-hero .feature-pill-detail,
+  :lang(hi) .documents-hero .feature-pill-label,
+  :lang(hi) .documents-hero .feature-pill-detail {
+    white-space: normal;
+  }
+
+  :lang(ml) .toolbar-end,
+  :lang(hi) .toolbar-end {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
+  :lang(ml) .sort-control,
+  :lang(hi) .sort-control {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
+  :lang(ml) .sort-select-wrap,
+  :lang(hi) .sort-select-wrap,
+  :lang(ml) .sort-select,
+  :lang(hi) .sort-select {
+    max-width: 100%;
+  }
+}
+
+/* Malayalam relative times ("1 ദിവസം മുമ്പ്") are one unit; keep them on one line
+   and let the badges move instead of splitting the time across two lines. */
+:lang(ml) .history-meta {
+  flex-wrap: wrap;
+  row-gap: 3px;
+}
+
+:lang(ml) .history-time {
+  white-space: nowrap;
+}

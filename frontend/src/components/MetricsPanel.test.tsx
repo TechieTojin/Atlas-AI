@@ -23,11 +23,12 @@ describe('MetricsPanel model usage', () => {
     )
     expect(screen.getByText('Model usage')).toBeInTheDocument()
     expect(screen.getByText('LLM calls').previousSibling).toHaveTextContent('3')
-    expect(screen.getByText('Output tokens').previousSibling).toHaveTextContent('1250')
+    // Counts are locale-formatted (en: thousands separator).
+    expect(screen.getByText('Output tokens').previousSibling).toHaveTextContent('1,250')
     const table = screen.getByRole('table', { name: 'Per-stage model usage' })
     const synthesisRow = within(table).getByRole('row', { name: /Synthesis/ })
     expect(synthesisRow).toHaveTextContent('6,200 chars')
-    expect(synthesisRow).toHaveTextContent('1500')
+    expect(synthesisRow).toHaveTextContent('1,500')
     expect(screen.getByText('Run budget')).toBeInTheDocument()
   })
 

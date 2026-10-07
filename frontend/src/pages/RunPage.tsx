@@ -6,7 +6,7 @@ import { FollowUpPanel } from '../components/FollowUpPanel'
 import { PlanApproval } from '../components/PlanApproval'
 import { ExportMenu, RegenerateAction } from '../components/RunActions'
 import { RunTabs } from '../components/RunTabs'
-import { StatusBadge, templateLabel } from '../components/StatusBadge'
+import { StatusBadge } from '../components/StatusBadge'
 import { RunStatChips, Timeline } from '../components/Timeline'
 import {
   ArrowLeftIcon,
@@ -20,9 +20,10 @@ import {
 } from '../components/icons'
 import { useRun } from '../hooks/useRun'
 import { useRunEvents } from '../hooks/useRunEvents'
+import { agoLabel, modeBadge, templateName, useI18n } from '../i18n'
 import type { EventType, RunDetail } from '../types'
 import { isActiveStatus } from '../types'
-import { formatClock, relativeTime } from '../utils/format'
+import { formatClock } from '../utils/format'
 import { emphasiseTitle, splitSections } from '../utils/report'
 
 const REFRESH_EVENT_TYPES: EventType[] = [
@@ -35,6 +36,7 @@ const REFRESH_EVENT_TYPES: EventType[] = [
 ]
 
 function ElapsedTime({ run, frozenAt }: { run: RunDetail; frozenAt: number | null }) {
+  const { t } = useI18n()
   const active = isActiveStatus(run.status) && frozenAt === null
   const [now, setNow] = useState(() => Date.now())
 
@@ -50,7 +52,7 @@ function ElapsedTime({ run, frozenAt }: { run: RunDetail; frozenAt: number | nul
   const elapsed = Math.max(0, (Number.isNaN(end) ? now : end) - start)
 
   return (
-    <span className="elapsed" title="Elapsed time">
+    <span className="elapsed" title={t('time.elapsed')}>
       {formatClock(elapsed)}
     </span>
   )
@@ -79,6 +81,7 @@ function useProjectName(projectId: string | null | undefined): string | null {
 }
 
 function MoreMenu({ runId }: { runId: string }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -114,7 +117,7 @@ function MoreMenu({ runId }: { runId: string }) {
       <button
         type="button"
         className="icon-btn framed"
-        aria-label="More actions"
+        aria-label={t('common.moreActions')}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
@@ -122,10 +125,10 @@ function MoreMenu({ runId }: { runId: string }) {
         <MoreVerticalIcon size={18} />
       </button>
       {open && (
-        <div className="menu align-end" role="menu" aria-label="More actions">
+        <div className="menu align-end" role="menu" aria-label={t('common.moreActions')}>
           <button type="button" role="menuitem" className="menu-item" onClick={() => void copyLink()}>
             <LinkIcon size={14} />
-            {copied ? 'Link copied' : 'Copy link'}
+            {copied ? t('common.linkCopied') : t('common.copyLink')}
           </button>
         </div>
       )}
@@ -136,6 +139,7 @@ function MoreMenu({ runId }: { runId: string }) {
 export function RunPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { t, format } = useI18n()
   const { run, loading, error, refetch, setRun } = useRun(id)
   const [actionError, setActionError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -170,7 +174,7 @@ export function RunPage() {
     return (
       <div className="page-state" role="status">
         <span className="spinner" aria-hidden="true" />
-        <p>Loading run…</p>
+        <p>{t('run.loading')}</p>
       </div>
     )
   }
@@ -178,10 +182,10 @@ export function RunPage() {
   if (error || !run) {
     return (
       <div className="page-state">
-        <h1>Run not found</h1>
-        <p className="error-text">{error ?? 'This run does not exist.'}</p>
+        <h1>{t('run.notFound')}</h1>
+        <p className="error-text">{error ?? t('run.notExist')}</p>
         <Link className="btn primary" to="/">
-          Start new research
+          {t('common.startNewResearch')}
         </Link>
       </div>
     )
@@ -205,15 +209,15 @@ export function RunPage() {
       setCancelRequestedAt(null)
       if (err instanceof ApiError && err.status === 409) {
         await refetch()
-        setActionError('The run finished before the cancellation reached the server.')
+        setActionError(t('run.cancelRaced'))
       } else {
-        setActionError(`Could not cancel the run: ${errorMessage(err)} Please try again.`)
+        setActionError(t('run.cancelFailed', { error: errorMessage(err) }))
       }
     }
   }
 
   const handleDelete = async () => {
-    if (!window.confirm('Delete this run? This cannot be undone.')) return
+    if (!window.confirm(t('run.confirmDelete'))) return
     setBusy(true)
     setActionError(null)
     try {
@@ -231,26 +235,26 @@ export function RunPage() {
   return (
     <div className="run-page report-page">
       <div className="run-topbar">
-        <nav className="breadcrumb" aria-label="Breadcrumb">
-          <Link to={backTarget} className="icon-btn breadcrumb-back" aria-label="Back">
+        <nav className="breadcrumb" aria-label={t('common.breadcrumb')}>
+          <Link to={backTarget} className="icon-btn breadcrumb-back" aria-label={t('common.back')}>
             <ArrowLeftIcon size={18} />
           </Link>
           <ol className="breadcrumb-list">
             {run.project_id ? (
               <>
                 <li>
-                  <Link to="/projects">Projects</Link>
+                  <Link to="/projects">{t('nav.projects')}</Link>
                 </li>
                 <li aria-hidden="true" className="breadcrumb-sep">
                   <ChevronRightIcon size={14} />
                 </li>
                 <li>
-                  <Link to={`/projects/${run.project_id}`}>{projectName ?? 'Project'}</Link>
+                  <Link to={`/projects/${run.project_id}`}>{projectName ?? t('common.project')}</Link>
                 </li>
               </>
             ) : (
               <li>
-                <Link to="/">Research</Link>
+                <Link to="/">{t('nav.research')}</Link>
               </li>
             )}
             <li aria-hidden="true" className="breadcrumb-sep">
@@ -270,7 +274,7 @@ export function RunPage() {
               disabled={busy || cancelling}
               aria-busy={cancelling}
             >
-              {cancelling ? 'Cancelling…' : 'Cancel'}
+              {cancelling ? t('common.cancelling') : t('common.cancel')}
             </button>
           )}
           {run.status === 'COMPLETED' && (
@@ -285,10 +289,10 @@ export function RunPage() {
               className="btn danger-ghost"
               onClick={() => void handleDelete()}
               disabled={busy}
-              aria-label="Delete run"
+              aria-label={t('run.deleteLabel')}
             >
               <TrashIcon size={14} />
-              <span>Delete</span>
+              <span>{t('common.delete')}</span>
             </button>
           )}
           <MoreMenu runId={run.id} />
@@ -312,30 +316,31 @@ export function RunPage() {
             {run.project_id && (
               <Link to={`/projects/${run.project_id}`} className="meta-pill project">
                 <FolderIcon size={13} />
-                <span>{projectName ?? 'Project'}</span>
+                <span>{projectName ?? t('common.project')}</span>
               </Link>
             )}
             <span className={`meta-pill mode mode-${run.mode.toLowerCase()}`}>
               <ModeIcon size={13} />
-              <span>{run.mode}</span>
+              <span>{modeBadge(t, run.mode)}</span>
             </span>
-            <span className="meta-pill template">{templateLabel(run.template)}</span>
+            <span className="meta-pill template">{templateName(t, run.template)}</span>
             {run.status !== 'COMPLETED' && <StatusBadge status={run.status} />}
             {run.regenerated_from && (
               <Link className="chip regenerated-chip" to={`/runs/${run.regenerated_from}`}>
-                Regenerated from
+                {t('run.regeneratedFrom')}
               </Link>
             )}
             {run.status === 'COMPLETED' ? (
               <span className="meta-updated">
-                <span aria-hidden="true">•</span> Updated {relativeTime(updatedAt)}
+                <span aria-hidden="true">•</span>{' '}
+                {t('time.updated', { time: agoLabel(t, format, updatedAt) })}
               </span>
             ) : (
               <ElapsedTime run={run} frozenAt={run.completed_at ? null : cancelRequestedAt} />
             )}
           </div>
         </div>
-        {run.status === 'COMPLETED' && <ReportHeroArt label={templateLabel(run.template)} />}
+        {run.status === 'COMPLETED' && <ReportHeroArt label={templateName(t, run.template)} />}
       </header>
 
       {actionError && (
@@ -369,11 +374,11 @@ export function RunPage() {
 
       {(run.status === 'FAILED' || run.status === 'CANCELLED') && (
         <section className="card failure-card glass-card">
-          <h2>{run.status === 'FAILED' ? 'Research failed' : 'Research cancelled'}</h2>
-          {run.error ? <p className="error-text">{run.error}</p> : <p>This run did not finish.</p>}
+          <h2>{run.status === 'FAILED' ? t('run.failedTitle') : t('run.cancelledTitle')}</h2>
+          {run.error ? <p className="error-text">{run.error}</p> : <p>{t('run.didNotFinish')}</p>}
           {events.length > 0 && <Timeline events={events} status={run.status} />}
           <Link className="btn primary" to="/">
-            Start new research
+            {t('common.startNewResearch')}
           </Link>
         </section>
       )}

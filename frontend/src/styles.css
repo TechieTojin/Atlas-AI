@@ -34,12 +34,63 @@
   src: url('/fonts/Caveat-latin.woff2') format('woff2');
 }
 
+/* Malayalam and Devanagari (Noto, SIL OFL 1.1 — see /fonts/OFL-Noto.txt).
+   Each face covers only its script's code points, so the browser downloads it
+   only when such text is actually on screen; English pages never fetch them. */
+@font-face {
+  font-family: 'Atlas Noto Sans Malayalam';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/NotoSansMalayalam-malayalam.woff2') format('woff2');
+  /* Malayalam only: the Devanagari danda, Vedic marks and ₹ that Fontsource
+     also maps here would otherwise pull this face into Hindi text. */
+  unicode-range: U+0D00-0D7F, U+200C-200D, U+25CC;
+}
+
+@font-face {
+  font-family: 'Atlas Noto Serif Malayalam';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/NotoSerifMalayalam-malayalam.woff2') format('woff2');
+  /* Malayalam only: the Devanagari danda, Vedic marks and ₹ that Fontsource
+     also maps here would otherwise pull this face into Hindi text. */
+  unicode-range: U+0D00-0D7F, U+200C-200D, U+25CC;
+}
+
+@font-face {
+  font-family: 'Atlas Noto Sans Devanagari';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/NotoSansDevanagari-devanagari.woff2') format('woff2');
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+20B9, U+20F0, U+25CC, U+A830-A839,
+    U+A8E0-A8FF, U+11B00-11B09;
+}
+
+@font-face {
+  font-family: 'Atlas Noto Serif Devanagari';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/NotoSerifDevanagari-devanagari.woff2') format('woff2');
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+20B9, U+20F0, U+25CC, U+A830-A839,
+    U+A8E0-A8FF, U+11B00-11B09;
+}
+
 :root {
+  /* The Latin fonts come first and cover every Latin glyph, so the Noto faces
+     only ever render Malayalam or Devanagari characters. */
   --font-sans:
-    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    sans-serif;
-  --font-display: 'Playfair Display', 'Didot', 'Bodoni MT', Georgia, 'Times New Roman', serif;
-  --font-script: 'Caveat', 'Segoe Script', 'Bradley Hand', cursive;
+    'Inter', 'Atlas Noto Sans Malayalam', 'Atlas Noto Sans Devanagari', -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-display:
+    'Playfair Display', 'Atlas Noto Serif Malayalam', 'Atlas Noto Serif Devanagari', 'Didot',
+    'Bodoni MT', Georgia, 'Times New Roman', serif;
+  --font-script:
+    'Caveat', 'Atlas Noto Sans Malayalam', 'Atlas Noto Sans Devanagari', 'Segoe Script',
+    'Bradley Hand', cursive;
   --font-mono: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
 
   /* Dark theme (default): deep black-green surfaces, emerald accent */

@@ -2,6 +2,7 @@ import { QueryForm } from '../components/QueryForm'
 import { EyebrowPill, FeaturePill } from '../components/PageHero'
 import { ResearchHeroArt } from '../components/art/ResearchHeroArt'
 import { Leaf } from '../components/art/Leaf'
+import { useI18n } from '../i18n'
 import {
   AtlasMark,
   BarChartIcon,
@@ -15,20 +16,21 @@ import {
 } from '../components/icons'
 
 const CAPABILITIES = [
-  { icon: SparklesIcon, label: 'Multi-Agent Research' },
-  { icon: SparkleIcon, label: 'Verified Sources' },
-  { icon: ShieldCheckIcon, label: 'In-depth Analysis' },
-  { icon: FileTextIcon, label: 'Clear & Structured Reports' },
-]
+  { icon: SparklesIcon, label: 'research.capabilities.multiAgent' },
+  { icon: SparkleIcon, label: 'research.capabilities.verified' },
+  { icon: ShieldCheckIcon, label: 'research.capabilities.analysis' },
+  { icon: FileTextIcon, label: 'research.capabilities.reports' },
+] as const
 
 const BENEFITS = [
-  { icon: RocketIcon, title: 'Save Time', text: 'Get accurate answers in seconds.' },
-  { icon: BookIcon, title: 'Reliable Knowledge', text: 'From trusted and verified sources.' },
-  { icon: TargetIcon, title: 'Deeper Insights', text: 'Powered by advanced AI agents.' },
-  { icon: BarChartIcon, title: 'Beautiful Reports', text: 'Well-structured, easy to understand.' },
-]
+  { icon: RocketIcon, title: 'research.benefits.timeTitle', text: 'research.benefits.timeText' },
+  { icon: BookIcon, title: 'research.benefits.knowledgeTitle', text: 'research.benefits.knowledgeText' },
+  { icon: TargetIcon, title: 'research.benefits.insightsTitle', text: 'research.benefits.insightsText' },
+  { icon: BarChartIcon, title: 'research.benefits.reportsTitle', text: 'research.benefits.reportsText' },
+] as const
 
 export function ResearchPage() {
+  const { t } = useI18n()
   return (
     <div className="research-page">
       <div className="research-backdrop" aria-hidden="true">
@@ -40,42 +42,42 @@ export function ResearchPage() {
       <section className="research-hero">
         <div className="research-hero-copy">
           <EyebrowPill icon={SparkleIcon} uppercase>
-            AI-Powered Research
+            {t('research.eyebrow')}
           </EyebrowPill>
           <h1 className="research-wordmark">
             <span className="research-wordmark-text">Atlas</span>
             <AtlasMark size={44} className="research-wordmark-leaf" />
           </h1>
-          <p className="research-tagline">Your Research Partner for a Smarter Tomorrow</p>
-          <ul className="capability-row" aria-label="Capabilities">
+          <p className="research-tagline">{t('research.tagline')}</p>
+          <ul className="capability-row" aria-label={t('research.capabilitiesLabel')}>
             {CAPABILITIES.map(({ icon, label }) => (
               <li key={label}>
-                <FeaturePill icon={icon} label={label} />
+                <FeaturePill icon={icon} label={t(label)} />
               </li>
             ))}
           </ul>
         </div>
         <ResearchHeroArt />
         <p className="script-note research-script" aria-hidden="true">
-          Research
+          {t('research.scriptLine1')}
           <br />
-          Smarter
+          {t('research.scriptLine2')}
           <br />
-          Live Better
+          {t('research.scriptLine3')}
         </p>
       </section>
 
       <QueryForm />
 
-      <section className="benefit-strip" aria-label="Why Atlas">
+      <section className="benefit-strip" aria-label={t('research.benefitsLabel')}>
         {BENEFITS.map(({ icon: Icon, title, text }) => (
           <div key={title} className="benefit">
             <span className="benefit-icon">
               <Icon size={20} />
             </span>
             <span className="benefit-body">
-              <span className="benefit-title">{title}</span>
-              <span className="benefit-text">{text}</span>
+              <span className="benefit-title">{t(title)}</span>
+              <span className="benefit-text">{t(text)}</span>
             </span>
           </div>
         ))}

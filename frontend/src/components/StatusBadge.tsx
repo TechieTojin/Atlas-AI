@@ -1,18 +1,6 @@
+import { modeBadge, statusLabel, templateName, useI18n } from '../i18n'
 import type { RunMode, RunStatus } from '../types'
 import { isActiveStatus } from '../types'
-
-const STATUS_LABELS: Record<RunStatus, string> = {
-  PENDING: 'Pending',
-  PLANNING: 'Planning',
-  AWAITING_APPROVAL: 'Awaiting approval',
-  RESEARCHING: 'Researching',
-  CRITIQUING: 'Critiquing',
-  SYNTHESIZING: 'Synthesizing',
-  CANCELLING: 'Cancelling…',
-  COMPLETED: 'Completed',
-  FAILED: 'Failed',
-  CANCELLED: 'Cancelled',
-}
 
 function statusTone(status: RunStatus): string {
   if (status === 'COMPLETED') return 'success'
@@ -22,45 +10,37 @@ function statusTone(status: RunStatus): string {
   return 'active'
 }
 
-export function statusLabel(status: RunStatus): string {
-  return STATUS_LABELS[status]
-}
-
 export function StatusBadge({ status }: { status: RunStatus }) {
+  const { t } = useI18n()
   return (
     <span className={`badge status-badge tone-${statusTone(status)}`} data-status={status}>
       {isActiveStatus(status) && <span className="badge-pulse" aria-hidden="true" />}
-      {STATUS_LABELS[status]}
+      {statusLabel(t, status)}
     </span>
   )
 }
 
 export function StatusDot({ status }: { status: RunStatus }) {
+  const { t } = useI18n()
+  const label = statusLabel(t, status)
   return (
     <span
       className={`status-dot tone-${statusTone(status)}${isActiveStatus(status) ? ' pulsing' : ''}`}
       role="img"
-      aria-label={STATUS_LABELS[status]}
-      title={STATUS_LABELS[status]}
+      aria-label={label}
+      title={label}
     />
   )
 }
 
 export function ModeBadge({ mode }: { mode: RunMode }) {
-  return <span className={`badge mode-badge mode-${mode.toLowerCase()}`}>{mode}</span>
-}
-
-/** "LITERATURE_REVIEW" → "Literature Review"; blank templates read as Standard. */
-export function templateLabel(template: string | undefined | null): string {
-  return (template || 'STANDARD')
-    .toLowerCase()
-    .split('_')
-    .map((word) => (word ? word[0].toUpperCase() + word.slice(1) : word))
-    .join(' ')
+  const { t } = useI18n()
+  return <span className={`badge mode-badge mode-${mode.toLowerCase()}`}>{modeBadge(t, mode)}</span>
 }
 
 /** Report-template badge; renders nothing for the standard template. */
 export function TemplateBadge({ template }: { template: string | undefined | null }) {
+  const { t } = useI18n()
   if (!template || template === 'STANDARD') return null
-  return <span className="badge template-badge">{templateLabel(template)}</span>
+  return <span className="badge template-badge">{templateName(t, template)}</span>
 }

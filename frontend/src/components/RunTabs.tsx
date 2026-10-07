@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { api } from '../api/client'
+import { useI18n } from '../i18n'
 import type { RunDetail } from '../types'
 import { EvidenceList } from './EvidenceList'
 import { KnowledgeGraphTab, runKnowledgeGraphTabProps } from './KnowledgeGraph'
@@ -11,15 +12,16 @@ import { BarChartIcon, FileTextIcon, LayersIcon, NetworkIcon, QuoteIcon } from '
 
 type TabId = 'report' | 'sources' | 'evidence' | 'metrics' | 'graph'
 
-const TABS: { id: TabId; label: string; icon: typeof FileTextIcon }[] = [
-  { id: 'report', label: 'Report', icon: FileTextIcon },
-  { id: 'sources', label: 'Sources', icon: LayersIcon },
-  { id: 'evidence', label: 'Evidence', icon: QuoteIcon },
-  { id: 'metrics', label: 'Metrics', icon: BarChartIcon },
-  { id: 'graph', label: 'Graph', icon: NetworkIcon },
+const TABS: { id: TabId; icon: typeof FileTextIcon }[] = [
+  { id: 'report', icon: FileTextIcon },
+  { id: 'sources', icon: LayersIcon },
+  { id: 'evidence', icon: QuoteIcon },
+  { id: 'metrics', icon: BarChartIcon },
+  { id: 'graph', icon: NetworkIcon },
 ]
 
 export function RunTabs({ run, projectName = null }: { run: RunDetail; projectName?: string | null }) {
+  const { t } = useI18n()
   const [active, setActive] = useState<TabId>('report')
 
   const loadClaims = useCallback(
@@ -29,7 +31,7 @@ export function RunTabs({ run, projectName = null }: { run: RunDetail; projectNa
 
   return (
     <div className="run-tabs">
-      <div className="tab-list" role="tablist" aria-label="Run results">
+      <div className="tab-list" role="tablist" aria-label={t('runTabs.label')}>
         {TABS.map((tab) => {
           const Icon = tab.icon
           const count =
@@ -50,7 +52,7 @@ export function RunTabs({ run, projectName = null }: { run: RunDetail; projectNa
               onClick={() => setActive(tab.id)}
             >
               <Icon size={17} className="tab-icon" />
-              <span>{tab.label}</span>
+              <span>{t(`runTabs.${tab.id}`)}</span>
               {count !== null && count > 0 && <span className="tab-count">{count}</span>}
             </button>
           )
@@ -73,7 +75,7 @@ export function RunTabs({ run, projectName = null }: { run: RunDetail; projectNa
                 loadClaims={loadClaims}
               />
             </div>
-            <aside className="report-side" aria-label="Report tools">
+            <aside className="report-side" aria-label={t('runTabs.reportTools')}>
               <ReportContents markdown={run.final_report} />
               <QuickActions runId={run.id} />
               <DocumentInfo run={run} projectName={projectName} />

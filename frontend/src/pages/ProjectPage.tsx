@@ -9,18 +9,12 @@ import { TrashIcon } from '../components/icons'
 import { useDocuments } from '../hooks/useDocuments'
 import { useProject } from '../hooks/useProjects'
 import { useRuns } from '../hooks/useRuns'
+import { agoLabel, useI18n } from '../i18n'
 import type { Comparison, DocumentRecord, ProjectWithCounts } from '../types'
-import { formatBytes, relativeTime } from '../utils/format'
 
 type TabId = 'overview' | 'research' | 'documents' | 'comparisons' | 'graph'
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'research', label: 'Research' },
-  { id: 'documents', label: 'Documents' },
-  { id: 'comparisons', label: 'Comparisons' },
-  { id: 'graph', label: 'Knowledge Graph' },
-]
+const TABS: TabId[] = ['overview', 'research', 'documents', 'comparisons', 'graph']
 
 function ProjectHeader({
   project,
@@ -32,6 +26,7 @@ function ProjectHeader({
   onContinueResearch: () => void
 }) {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(project.name)
   const [description, setDescription] = useState(project.description)
@@ -58,11 +53,7 @@ function ProjectHeader({
   }
 
   const handleDelete = async () => {
-    const message =
-      `Delete project “${project.name}”?\n\n` +
-      'Runs, documents, and comparisons in this project are detached, not deleted — ' +
-      'they remain available outside the project.'
-    if (!window.confirm(message)) return
+    if (!window.confirm(t('workspace.confirmDelete', { name: project.name }))) return
     setBusy(true)
     setError(null)
     try {
@@ -76,9 +67,9 @@ function ProjectHeader({
 
   if (editing) {
     return (
-      <form className="card project-dialog" onSubmit={handleSave} aria-label="Edit project">
+      <form className="card project-dialog" onSubmit={handleSave} aria-label={t('workspace.editLabel')}>
         <label className="field-label" htmlFor="edit-project-name">
-          Name
+          {t('common.name')}
         </label>
         <input
           id="edit-project-name"
@@ -89,7 +80,7 @@ function ProjectHeader({
           maxLength={200}
         />
         <label className="field-label" htmlFor="edit-project-description">
-          Description
+          {t('common.description')}
         </label>
         <textarea
           id="edit-project-description"
@@ -101,10 +92,10 @@ function ProjectHeader({
         />
         <div className="btn-row">
           <button type="submit" className="btn primary" disabled={busy || !name.trim()}>
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? t('common.saving') : t('common.save')}
           </button>
           <button type="button" className="btn" onClick={() => setEditing(false)} disabled={busy}>
-            Cancel
+            {t('common.cancel')}
           </button>
         </div>
         {error && (
@@ -124,10 +115,10 @@ function ProjectHeader({
       </div>
       <div className="run-actions">
         <button type="button" className="btn primary" onClick={onContinueResearch}>
-          Continue research
+          {t('common.continueResearch')}
         </button>
         <button type="button" className="btn" onClick={() => setEditing(true)}>
-          Edit
+          {t('common.edit')}
         </button>
         <button
           type="button"
@@ -136,7 +127,7 @@ function ProjectHeader({
           disabled={busy}
         >
           <TrashIcon size={14} />
-          <span>Delete</span>
+          <span>{t('common.delete')}</span>
         </button>
         {error && (
           <p className="form-error" role="alert">
@@ -149,6 +140,7 @@ function ProjectHeader({
 }
 
 function ProjectDocuments({ projectId }: { projectId: string }) {
+  const { t, format } = useI18n()
   const { documents, loading, error, upload, refresh, remove } = useDocuments(projectId)
   const [allDocuments, setAllDocuments] = useState<DocumentRecord[]>([])
   const [actionError, setActionError] = useState<string | null>(null)
@@ -197,14 +189,14 @@ function ProjectDocuments({ projectId }: { projectId: string }) {
     <div className="project-documents">
       <div className="project-upload-row">
         <label className="btn" htmlFor="project-doc-upload">
-          {uploading ? 'Uploading…' : 'Upload to project'}
+          {uploading ? t('workspace.uploading') : t('workspace.uploadToProject')}
         </label>
         <input
           id="project-doc-upload"
           type="file"
           accept=".pdf,.txt,.md"
           className="visually-hidden"
-          aria-label="Upload document to project"
+          aria-label={t('workspace.uploadLabel')}
           disabled={uploading}
           onChange={(event) => {
             const file = event.target.files?.[0]
@@ -219,32 +211,32 @@ function ProjectDocuments({ projectId }: { projectId: string }) {
           {actionError}
         </p>
       )}
-      {loading && <p className="hint-text">Loading documents…</p>}
+      {loading && <p className="hint-text">{t('workspace.loadingDocuments')}</p>}
       {error && !loading && <p className="error-text">{error}</p>}
 
       {!loading && documents.length === 0 && (
-        <p className="empty-note">No documents in this project yet.</p>
+        <p className="empty-note">{t('workspace.noDocuments')}</p>
       )}
       {documents.length > 0 && (
-        <ul className="project-doc-list" aria-label="Project documents">
+        <ul className="project-doc-list" aria-label={t('workspace.documentsLabel')}>
           {documents.map((doc) => (
             <li key={doc.id} className="project-doc-item">
               <span className="doc-name">{doc.filename}</span>
-              <span className="hint-text">{formatBytes(doc.size_bytes)}</span>
+              <span className="hint-text">{format.bytes(doc.size_bytes)}</span>
               <span className="project-doc-actions">
                 <button
                   type="button"
                   className="btn"
                   onClick={() => void act(() => api.unassignDocument(projectId, doc.id))}
                 >
-                  Remove from project
+                  {t('workspace.removeFromProject')}
                 </button>
                 <button
                   type="button"
                   className="icon-btn danger"
-                  aria-label={`Delete ${doc.filename}`}
+                  aria-label={t('common.deleteNamed', { name: doc.filename })}
                   onClick={() => {
-                    if (window.confirm(`Delete “${doc.filename}”? This cannot be undone.`)) {
+                    if (window.confirm(t('documents.confirmDelete', { name: doc.filename }))) {
                       void act(() => remove(doc.id))
                     }
                   }}
@@ -259,18 +251,18 @@ function ProjectDocuments({ projectId }: { projectId: string }) {
 
       {assignable.length > 0 && (
         <section className="assignable-docs">
-          <h3 className="panel-heading">Add existing documents</h3>
-          <ul className="project-doc-list" aria-label="Assignable documents">
+          <h3 className="panel-heading">{t('workspace.addExisting')}</h3>
+          <ul className="project-doc-list" aria-label={t('workspace.assignableLabel')}>
             {assignable.map((doc) => (
               <li key={doc.id} className="project-doc-item">
                 <span className="doc-name">{doc.filename}</span>
-                <span className="hint-text">{formatBytes(doc.size_bytes)}</span>
+                <span className="hint-text">{format.bytes(doc.size_bytes)}</span>
                 <button
                   type="button"
                   className="btn"
                   onClick={() => void act(() => api.assignDocument(projectId, doc.id))}
                 >
-                  Add to project
+                  {t('workspace.addToProject')}
                 </button>
               </li>
             ))}
@@ -282,6 +274,7 @@ function ProjectDocuments({ projectId }: { projectId: string }) {
 }
 
 function ProjectComparisons({ projectId }: { projectId: string }) {
+  const { t, format } = useI18n()
   const { runs } = useRuns(50, projectId)
   const [comparisons, setComparisons] = useState<Comparison[]>([])
   const [loading, setLoading] = useState(true)
@@ -307,32 +300,32 @@ function ProjectComparisons({ projectId }: { projectId: string }) {
 
   return (
     <div className="project-comparisons">
-      {loading && <p className="hint-text">Loading comparisons…</p>}
+      {loading && <p className="hint-text">{t('workspace.loadingComparisons')}</p>}
       {error && <p className="error-text">{error}</p>}
       {!loading && !error && comparisons.length === 0 && (
-        <p className="hint-text">No comparisons in this project yet.</p>
+        <p className="hint-text">{t('workspace.noComparisons')}</p>
       )}
       {comparisons.length > 0 && (
-        <ul className="comparison-list" aria-label="Comparisons">
+        <ul className="comparison-list" aria-label={t('workspace.comparisonsLabel')}>
           {comparisons.map((comparison) => (
             <li key={comparison.id} className="comparison-item">
               <Link to={`/comparisons/${comparison.id}`} className="run-row-title">
-                {comparison.title || comparison.run_queries.join(' vs ')}
+                {comparison.title || comparison.run_queries.join(t('workspace.versus'))}
               </Link>
               <span className="history-meta">
-                <span>{comparison.status}</span>
-                <span>{relativeTime(comparison.created_at)}</span>
+                <span>{t(`comparison.status.${comparison.status}`)}</span>
+                <span>{agoLabel(t, format, comparison.created_at)}</span>
               </span>
             </li>
           ))}
         </ul>
       )}
 
-      <h3 className="panel-heading">New comparison</h3>
+      <h3 className="panel-heading">{t('workspace.newComparison')}</h3>
       <CompareRunsList
         runs={runs}
         projectId={projectId}
-        emptyNote="No completed runs in this project to compare yet."
+        emptyNote={t('workspace.noCompletedRuns')}
       />
     </div>
   )
@@ -340,6 +333,7 @@ function ProjectComparisons({ projectId }: { projectId: string }) {
 
 export function ProjectPage() {
   const { id } = useParams<{ id: string }>()
+  const { t } = useI18n()
   const { project, loading, error, setProject } = useProject(id)
   const [active, setActive] = useState<TabId>('overview')
   const { runs } = useRuns(50, active === 'research' ? id : undefined)
@@ -348,7 +342,7 @@ export function ProjectPage() {
     return (
       <div className="page-state" role="status">
         <span className="spinner" aria-hidden="true" />
-        <p>Loading project…</p>
+        <p>{t('workspace.loading')}</p>
       </div>
     )
   }
@@ -356,10 +350,10 @@ export function ProjectPage() {
   if (error || !project) {
     return (
       <div className="page-state">
-        <h1>Project not found</h1>
-        <p className="error-text">{error ?? 'This project does not exist.'}</p>
+        <h1>{t('workspace.notFound')}</h1>
+        <p className="error-text">{error ?? t('workspace.notExist')}</p>
         <Link className="btn primary" to="/projects">
-          Back to projects
+          {t('common.backToProjects')}
         </Link>
       </div>
     )
@@ -373,19 +367,19 @@ export function ProjectPage() {
         onContinueResearch={() => setActive('research')}
       />
 
-      <div className="tab-list" role="tablist" aria-label="Project workspace">
+      <div className="tab-list" role="tablist" aria-label={t('workspace.tabsLabel')}>
         {TABS.map((tab) => (
           <button
-            key={tab.id}
+            key={tab}
             type="button"
             role="tab"
-            id={`project-tab-${tab.id}`}
-            aria-selected={active === tab.id}
-            aria-controls={`project-panel-${tab.id}`}
-            className={`tab${active === tab.id ? ' active' : ''}`}
-            onClick={() => setActive(tab.id)}
+            id={`project-tab-${tab}`}
+            aria-selected={active === tab}
+            aria-controls={`project-panel-${tab}`}
+            className={`tab${active === tab ? ' active' : ''}`}
+            onClick={() => setActive(tab)}
           >
-            {tab.label}
+            {t(`workspace.tabs.${tab}`)}
           </button>
         ))}
       </div>
@@ -402,11 +396,11 @@ export function ProjectPage() {
         {active === 'research' && (
           <div className="project-research">
             <QueryForm projectId={project.id} />
-            <h3 className="panel-heading">Runs in this project</h3>
+            <h3 className="panel-heading">{t('workspace.runsInProject')}</h3>
             <CompareRunsList
               runs={runs}
               projectId={project.id}
-              emptyNote="No research in this project yet."
+              emptyNote={t('workspace.noResearch')}
             />
           </div>
         )}

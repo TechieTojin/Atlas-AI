@@ -55,7 +55,8 @@ describe('FollowUpPanel', () => {
 
     expect(await screen.findByText('Which regions lead deployment?')).toBeInTheDocument()
     expect(screen.getByText('RESEARCH')).toBeInTheDocument()
-    expect(screen.getByText('+1 new sources')).toBeInTheDocument()
+    // Plural-aware since Phase 2 i18n: one new source is singular.
+    expect(screen.getByText('+1 new source')).toBeInTheDocument()
     expect(screen.getByText(/Deeper findings here\./)).toBeInTheDocument()
 
     // Expand the numbered source list: only the source beyond the parent

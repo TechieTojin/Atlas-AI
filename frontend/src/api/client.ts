@@ -18,6 +18,7 @@ import type {
   SourceScope,
   TemplateInfo,
 } from '../types'
+import { activeTranslator } from '../i18n/labels'
 
 export class ApiError extends Error {
   readonly status: number
@@ -29,6 +30,8 @@ export class ApiError extends Error {
   }
 }
 
+const t = () => activeTranslator()
+
 const BASE = '/api'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -36,10 +39,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     res = await fetch(BASE + path, init)
   } catch {
-    throw new ApiError('Could not reach the Atlas backend. Is it running?', 0)
+    throw new ApiError(t()('errors.network'), 0)
   }
   if (!res.ok) {
-    let message = `Request failed with status ${res.status}`
+    // A backend `detail` is shown as sent: it is server prose, not a UI string.
+    let message = t()('errors.requestFailed', { status: res.status })
     try {
       const body: unknown = await res.json()
       if (body && typeof body === 'object' && 'detail' in body) {

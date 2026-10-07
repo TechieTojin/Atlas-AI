@@ -20,6 +20,7 @@ import {
 import { EyebrowPill, FeaturePill } from '../components/PageHero'
 import { ProjectCard } from '../components/ProjectCard'
 import { useProjects } from '../hooks/useProjects'
+import { useI18n } from '../i18n'
 import type { ProjectWithCounts } from '../types'
 
 type Filter = 'all' | 'recent'
@@ -27,11 +28,11 @@ type SortKey = 'updated' | 'name' | 'created'
 type Layout = 'grid' | 'list'
 
 const FEATURES = [
-  { icon: FolderIcon, label: 'Smart Organization' },
-  { icon: FileTextIcon, label: 'All Documents in One Place' },
-  { icon: ClockIcon, label: 'Resume Anytime' },
-  { icon: UsersIcon, label: 'Collaborate & Share' },
-]
+  { icon: FolderIcon, label: 'projects.features.organization' },
+  { icon: FileTextIcon, label: 'projects.features.documents' },
+  { icon: ClockIcon, label: 'projects.features.resume' },
+  { icon: UsersIcon, label: 'projects.features.collaborate' },
+] as const
 
 const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 
@@ -46,6 +47,7 @@ function sortProjects(projects: ProjectWithCounts[], sort: SortKey): ProjectWith
 
 export function ProjectsPage() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const { projects, loading, error, create } = useProjects()
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
@@ -100,18 +102,18 @@ export function ProjectsPage() {
       <header className="page-hero projects-hero">
         <div className="page-hero-copy">
           <div className="page-hero-eyebrow">
-            <EyebrowPill icon={AtlasMark}>Your Research Workspace</EyebrowPill>
+            <EyebrowPill icon={AtlasMark}>{t('projects.eyebrow')}</EyebrowPill>
           </div>
-          <h1 className="display-title">Projects</h1>
+          <h1 className="display-title">{t('projects.title')}</h1>
           <p className="page-hero-subtitle">
-            Organize your research, documents, and comparisons
+            {t('projects.subtitleLine1')}
             <br />
-            into focused projects.
+            {t('projects.subtitleLine2')}
           </p>
-          <ul className="feature-chip-row" aria-label="Workspace features">
+          <ul className="feature-chip-row" aria-label={t('projects.featuresLabel')}>
             {FEATURES.map(({ icon, label }) => (
               <li key={label}>
-                <FeaturePill icon={icon} label={label} variant="chip" />
+                <FeaturePill icon={icon} label={t(label)} variant="chip" />
               </li>
             ))}
           </ul>
@@ -119,7 +121,7 @@ export function ProjectsPage() {
         <div className="page-hero-actions">
           <button type="button" className="btn light new-project-btn" onClick={openCreate}>
             <PlusIcon size={16} />
-            <span>New project</span>
+            <span>{t('projects.newProject')}</span>
             <span className="btn-divider" aria-hidden="true" />
             <ChevronDownIcon size={15} />
           </button>
@@ -131,21 +133,21 @@ export function ProjectsPage() {
 
       {creating && (
         <div className="dialog-scrim" role="presentation">
-          <form className="card project-dialog glass-card" onSubmit={handleCreate} aria-label="Create project">
+          <form className="card project-dialog glass-card" onSubmit={handleCreate} aria-label={t('projects.createLabel')}>
             <div className="dialog-head">
-              <h2>New project</h2>
+              <h2>{t('projects.newProject')}</h2>
               <button
                 type="button"
                 className="icon-btn"
                 onClick={() => setCreating(false)}
                 disabled={busy}
-                aria-label="Close dialog"
+                aria-label={t('projects.closeDialog')}
               >
                 <XIcon size={16} />
               </button>
             </div>
             <label className="field-label" htmlFor="project-name">
-              Name
+              {t('common.name')}
             </label>
             <input
               id="project-name"
@@ -157,7 +159,7 @@ export function ProjectsPage() {
               autoFocus
             />
             <label className="field-label" htmlFor="project-description">
-              Description
+              {t('common.description')}
             </label>
             <textarea
               id="project-description"
@@ -169,10 +171,10 @@ export function ProjectsPage() {
             />
             <div className="btn-row">
               <button type="submit" className="btn primary glow" disabled={busy || !name.trim()}>
-                {busy ? 'Creating…' : 'Create project'}
+                {busy ? t('projects.creating') : t('projects.create')}
               </button>
               <button type="button" className="btn" onClick={() => setCreating(false)} disabled={busy}>
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
             {createError && (
@@ -184,30 +186,30 @@ export function ProjectsPage() {
         </div>
       )}
 
-      <section className="toolbar-panel glass-card" aria-label="Find projects">
+      <section className="toolbar-panel glass-card" aria-label={t('projects.findLabel')}>
         <div className="search-field">
           <SearchIcon size={18} className="search-field-icon" />
           <label className="visually-hidden" htmlFor={searchId}>
-            Search projects
+            {t('projects.searchLabel')}
           </label>
           <input
             id={searchId}
             type="search"
             className="search-input"
-            placeholder="Search projects by name, topic, or keyword..."
+            placeholder={t('projects.searchPlaceholder')}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
         </div>
         <div className="toolbar-row">
-          <div className="filter-tabs" role="group" aria-label="Project filters">
+          <div className="filter-tabs" role="group" aria-label={t('projects.filtersLabel')}>
             <button
               type="button"
               className={`filter-tab${filter === 'all' ? ' selected' : ''}`}
               aria-pressed={filter === 'all'}
               onClick={() => setFilter('all')}
             >
-              All Projects
+              {t('projects.filterAll')}
             </button>
             <button
               type="button"
@@ -216,21 +218,21 @@ export function ProjectsPage() {
               onClick={() => setFilter('recent')}
             >
               <ClockIcon size={15} />
-              Recently Updated
+              {t('projects.filterRecent')}
             </button>
             {/* Atlas is single-user and local-first: no ownership or sharing exists. */}
-            <button type="button" className="filter-tab" disabled title="Atlas is single-user; all projects are yours">
+            <button type="button" className="filter-tab" disabled title={t('projects.filterMineTitle')}>
               <UsersIcon size={15} />
-              My Projects
+              {t('projects.filterMine')}
             </button>
-            <button type="button" className="filter-tab" disabled title="Sharing is not available in Atlas">
+            <button type="button" className="filter-tab" disabled title={t('projects.filterSharedTitle')}>
               <LayersIcon size={15} />
-              Shared with Me
+              {t('projects.filterShared')}
             </button>
           </div>
           <div className="toolbar-end">
             <label className="sort-control" htmlFor={sortId}>
-              <span className="sort-control-label">Sort by:</span>
+              <span className="sort-control-label">{t('common.sortBy')}</span>
               <span className="sort-select-wrap">
                 <select
                   id={sortId}
@@ -238,19 +240,19 @@ export function ProjectsPage() {
                   value={sort}
                   onChange={(event) => setSort(event.target.value as SortKey)}
                 >
-                  <option value="updated">Last Updated</option>
-                  <option value="created">Date Created</option>
-                  <option value="name">Name</option>
+                  <option value="updated">{t('common.lastUpdated')}</option>
+                  <option value="created">{t('projects.sortCreated')}</option>
+                  <option value="name">{t('common.name')}</option>
                 </select>
                 <ChevronDownIcon size={15} className="sort-select-chevron" />
               </span>
             </label>
-            <div className="view-toggle" role="group" aria-label="Layout">
+            <div className="view-toggle" role="group" aria-label={t('common.layout')}>
               <button
                 type="button"
                 className={`view-btn${layout === 'grid' ? ' selected' : ''}`}
                 aria-pressed={layout === 'grid'}
-                aria-label="Grid view"
+                aria-label={t('common.gridView')}
                 onClick={() => setLayout('grid')}
               >
                 <GridIcon size={17} />
@@ -259,7 +261,7 @@ export function ProjectsPage() {
                 type="button"
                 className={`view-btn${layout === 'list' ? ' selected' : ''}`}
                 aria-pressed={layout === 'list'}
-                aria-label="List view"
+                aria-label={t('common.listView')}
                 onClick={() => setLayout('list')}
               >
                 <ListIcon size={17} />
@@ -272,16 +274,16 @@ export function ProjectsPage() {
       {loading && (
         <div className="page-state" role="status">
           <span className="spinner" aria-hidden="true" />
-          <p>Loading projects…</p>
+          <p>{t('projects.loading')}</p>
         </div>
       )}
       {error && !loading && <p className="error-text">{error}</p>}
 
       {!loading && !error && projects.length === 0 && (
-        <p className="empty-note">No projects yet. Create one to organize your research.</p>
+        <p className="empty-note">{t('projects.empty')}</p>
       )}
       {!loading && !error && projects.length > 0 && visible.length === 0 && (
-        <p className="empty-note">No projects match your search.</p>
+        <p className="empty-note">{t('projects.noMatches')}</p>
       )}
 
       {!loading && !error && (
@@ -290,14 +292,14 @@ export function ProjectsPage() {
             <span className="new-project-plus">
               <PlusIcon size={30} />
             </span>
-            <span className="new-project-title">New Project</span>
+            <span className="new-project-title">{t('projects.cardTitle')}</span>
             <span className="new-project-text">
-              Start a new research project
+              {t('projects.cardTextLine1')}
               <br />
-              and keep your work organized.
+              {t('projects.cardTextLine2')}
             </span>
             <span className="btn primary glow new-project-cta">
-              Create Project
+              {t('projects.cardCta')}
               <ArrowRightIcon size={16} />
             </span>
           </button>

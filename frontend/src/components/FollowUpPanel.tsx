@@ -1,40 +1,41 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, errorMessage } from '../api/client'
 import { useEventStream } from '../hooks/useEventStream'
+import { followUpKindLabel, useI18n } from '../i18n'
 import type { FollowUp, FollowUpMode, Source } from '../types'
 import { CitedReport } from './CitedReport'
 import { SourceRow } from './SourcesList'
 
-const MODES: { value: FollowUpMode; label: string }[] = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'analytical', label: 'Use existing evidence' },
-  { value: 'research', label: 'Research further' },
-]
+const MODES: FollowUpMode[] = ['auto', 'analytical', 'research']
 
+// The chip label follows the UI language, but the question it inserts stays
+// English: generation is English-only until output language is supported, and a
+// translated question would quietly ask the model for another language.
 const SUGGESTIONS = [
-  'Explain this more simply',
-  'What evidence is strongest?',
-  'What contradicts this?',
-  'Research this deeper',
-]
+  { label: 'followUp.suggestions.simpler', question: 'Explain this more simply' },
+  { label: 'followUp.suggestions.strongest', question: 'What evidence is strongest?' },
+  { label: 'followUp.suggestions.contradicts', question: 'What contradicts this?' },
+  { label: 'followUp.suggestions.deeper', question: 'Research this deeper' },
+] as const
 
 function FollowUpSources({ followup }: { followup: FollowUp }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   if (followup.sources.length === 0) return null
   return (
     <div className="followup-sources">
       <button type="button" className="link-btn" onClick={() => setOpen((value) => !value)}>
-        {open ? 'Hide sources' : `Sources (${followup.sources.length})`}
+        {open ? t('followUp.hideSources') : t('followUp.showSources', { count: followup.sources.length })}
       </button>
       {open && (
-        <ol className="sources-list" aria-label={`Sources for follow-up: ${followup.question}`}>
+        <ol className="sources-list" aria-label={t('followUp.sourcesFor', { question: followup.question })}>
           {followup.sources.map((source: Source) => (
             <SourceRow
               key={source.index}
               source={source}
               trailing={
                 source.index > followup.parent_source_count ? (
-                  <span className="badge tone-active new-source-badge">New</span>
+                  <span className="badge tone-active new-source-badge">{t('common.new')}</span>
                 ) : undefined
               }
             />
@@ -46,28 +47,31 @@ function FollowUpSources({ followup }: { followup: FollowUp }) {
 }
 
 function FollowUpItem({ followup }: { followup: FollowUp }) {
+  const { t } = useI18n()
   const active = followup.status === 'PENDING' || followup.status === 'RUNNING'
   return (
-    <article className="followup-item" aria-label={`Follow-up: ${followup.question}`}>
+    <article className="followup-item" aria-label={t('followUp.itemLabel', { question: followup.question })}>
       <header className="followup-question-row">
         <p className="followup-question">{followup.question}</p>
         <span className={`badge kind-badge kind-${followup.kind.toLowerCase()}`}>
-          {followup.kind === 'RESEARCH' ? 'RESEARCH' : 'ANALYTICAL'}
+          {followUpKindLabel(t, followup.kind)}
         </span>
         {followup.new_source_count > 0 && (
-          <span className="badge tone-active">+{followup.new_source_count} new sources</span>
+          <span className="badge tone-active">
+            {t('followUp.newSources', { count: followup.new_source_count })}
+          </span>
         )}
       </header>
       {active && (
         <p className="followup-status" role="status">
           <span className="spinner small" aria-hidden="true" />
-          {followup.status === 'PENDING' ? 'Queued…' : 'Answering…'}
+          {followup.status === 'PENDING' ? t('followUp.queued') : t('followUp.answering')}
         </p>
       )}
       {followup.status === 'FAILED' && (
-        <p className="error-text">{followup.error || 'This follow-up failed.'}</p>
+        <p className="error-text">{followup.error || t('followUp.failed')}</p>
       )}
-      {followup.status === 'CANCELLED' && <p className="hint-text">Cancelled.</p>}
+      {followup.status === 'CANCELLED' && <p className="hint-text">{t('followUp.cancelled')}</p>}
       {followup.status === 'COMPLETED' && (
         <>
           <CitedReport
@@ -75,7 +79,7 @@ function FollowUpItem({ followup }: { followup: FollowUp }) {
             sources={followup.sources}
             parentSourceCount={followup.parent_source_count}
             className="report followup-answer"
-            emptyNote="No answer was produced."
+            emptyNote={t('followUp.noAnswer')}
           />
           <FollowUpSources followup={followup} />
         </>
@@ -85,6 +89,7 @@ function FollowUpItem({ followup }: { followup: FollowUp }) {
 }
 
 export function FollowUpPanel({ runId }: { runId: string }) {
+  const { t } = useI18n()
   const [followups, setFollowups] = useState<FollowUp[]>([])
   const [question, setQuestion] = useState('')
   const [mode, setMode] = useState<FollowUpMode>('auto')
@@ -132,9 +137,9 @@ export function FollowUpPanel({ runId }: { runId: string }) {
   }
 
   return (
-    <section className="followup-panel" aria-label="Ask Atlas">
-      <h2 className="followup-heading">Ask Atlas</h2>
-      <p className="page-subtitle">Follow up on this research with questions.</p>
+    <section className="followup-panel" aria-label={t('followUp.label')}>
+      <h2 className="followup-heading">{t('followUp.heading')}</h2>
+      <p className="page-subtitle">{t('followUp.subtitle')}</p>
 
       {followups.length > 0 && (
         <div className="followup-list">
@@ -144,17 +149,17 @@ export function FollowUpPanel({ runId }: { runId: string }) {
         </div>
       )}
 
-      <form className="followup-form" onSubmit={handleSubmit} aria-label="Ask a follow-up question">
+      <form className="followup-form" onSubmit={handleSubmit} aria-label={t('followUp.formLabel')}>
         <div className="suggestion-chips">
-          {SUGGESTIONS.map((suggestion) => (
+          {SUGGESTIONS.map(({ label, question: suggestion }) => (
             <button
-              key={suggestion}
+              key={label}
               type="button"
               className="chip"
               onClick={() => setQuestion(suggestion)}
               disabled={submitting}
             >
-              {suggestion}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -162,27 +167,27 @@ export function FollowUpPanel({ runId }: { runId: string }) {
           <input
             type="text"
             className="text-input"
-            placeholder="Ask a follow-up question…"
-            aria-label="Follow-up question"
+            placeholder={t('followUp.placeholder')}
+            aria-label={t('followUp.questionLabel')}
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
             disabled={submitting}
           />
           <select
             className="select-input"
-            aria-label="Follow-up mode"
+            aria-label={t('followUp.modeLabel')}
             value={mode}
             onChange={(event) => setMode(event.target.value as FollowUpMode)}
             disabled={submitting}
           >
             {MODES.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+              <option key={option} value={option}>
+                {t(`followUp.modes.${option}`)}
               </option>
             ))}
           </select>
           <button type="submit" className="btn primary" disabled={!question.trim() || submitting}>
-            {submitting ? 'Asking…' : 'Ask'}
+            {submitting ? t('followUp.asking') : t('followUp.ask')}
           </button>
         </div>
       </form>

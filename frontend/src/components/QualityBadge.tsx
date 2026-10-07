@@ -1,12 +1,6 @@
 import { useState } from 'react'
+import { qualityCategoryLabel, tierLabel, useI18n } from '../i18n'
 import type { QualityTier, SourceQuality } from '../types'
-
-export const TIER_LABELS: Record<QualityTier, string> = {
-  high: 'High authority',
-  medium: 'Medium authority',
-  low: 'Low authority',
-  unknown: 'Unverified',
-}
 
 export function tierRank(tier: QualityTier | string): number {
   switch (tier) {
@@ -36,10 +30,11 @@ export function QualityBadge({
   quality: SourceQuality | null | undefined
   expandable?: boolean
 }) {
+  const { t, format } = useI18n()
   const [expanded, setExpanded] = useState(false)
   if (!quality) return null
 
-  const label = `${quality.category} · ${TIER_LABELS[quality.tier] ?? quality.tier}`
+  const label = `${qualityCategoryLabel(t, quality.category)} · ${tierLabel(t, quality.tier)}`
 
   if (!expandable) {
     return (
@@ -63,16 +58,20 @@ export function QualityBadge({
       </button>
       {expanded && (
         <span className="quality-details">
-          <span className="quality-score">Quality score {quality.score.toFixed(2)}</span>
+          <span className="quality-score">
+            {t('quality.score', {
+              score: format.number(quality.score, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            })}
+          </span>
           {quality.signals.length > 0 && (
-            <ul className="quality-signals" aria-label="Quality signals">
+            <ul className="quality-signals" aria-label={t('quality.signals')}>
               {quality.signals.map((signal, index) => (
                 <li key={index}>{signal}</li>
               ))}
             </ul>
           )}
           {quality.warnings.length > 0 && (
-            <ul className="quality-warnings" aria-label="Quality warnings">
+            <ul className="quality-warnings" aria-label={t('quality.warnings')}>
               {quality.warnings.map((warning, index) => (
                 <li key={index}>{warning}</li>
               ))}

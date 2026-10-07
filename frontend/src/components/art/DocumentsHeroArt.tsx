@@ -1,3 +1,4 @@
+import { useI18n } from '../../i18n'
 import { Leaf } from './Leaf'
 
 function DocBadge({ label, className, tone }: { label: string; className: string; tone: 'pdf' | 'txt' | 'md' }) {
@@ -37,6 +38,7 @@ function Sheet({ x, y, rotate, lines }: { x: number; y: number; rotate: number; 
 
 /** Dimensional document stack with format badges above a glowing upload cloud. */
 export function DocumentsHeroArt() {
+  const { t } = useI18n()
   return (
     <div className="documents-art" aria-hidden="true">
       <div className="documents-art-glow" />
@@ -112,13 +114,13 @@ export function DocumentsHeroArt() {
       </svg>
 
       <p className="script-note documents-script">
-        Your
+        {t('documents.scriptLine1')}
         <br />
-        Documents
+        {t('documents.scriptLine2')}
         <br />
-        Smarter
+        {t('documents.scriptLine3')}
         <br />
-        Insights
+        {t('documents.scriptLine4')}
       </p>
 
       <Leaf size={42} rotate={-40} className="documents-leaf-a" />

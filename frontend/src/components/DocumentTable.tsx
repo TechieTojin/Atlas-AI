@@ -1,24 +1,25 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
+import { useI18n, type LocaleFormatters } from '../i18n'
 import type { DocumentRecord } from '../types'
-import { formatBytes } from '../utils/format'
 import { EyeIcon, MoreVerticalIcon, TrashIcon } from './icons'
 
 export function DocumentStatus({ document }: { document: DocumentRecord }) {
+  const { t } = useI18n()
   if (document.status === 'PROCESSING') {
     return (
       <span className="doc-status processing">
         <span className="spinner small" aria-hidden="true" />
-        Processing
+        {t('documentTable.processing')}
       </span>
     )
   }
   if (document.status === 'FAILED') {
     return (
-      <span className="doc-status failed" title={document.error || 'Processing failed'}>
+      <span className="doc-status failed" title={document.error || t('documentTable.processingFailed')}>
         <span className="doc-status-mark" aria-hidden="true">
           ✕
         </span>
-        Failed
+        {t('documentTable.failed')}
       </span>
     )
   }
@@ -27,19 +28,15 @@ export function DocumentStatus({ document }: { document: DocumentRecord }) {
       <span className="doc-status-mark" aria-hidden="true">
         ✓
       </span>
-      Ready
+      {t('documentTable.ready')}
     </span>
   )
 }
 
-function uploadedParts(iso: string): { date: string; time: string } {
+function uploadedParts(format: LocaleFormatters, iso: string): { date: string; time: string } {
   const then = Date.parse(iso)
   if (Number.isNaN(then)) return { date: '—', time: '' }
-  const value = new Date(then)
-  return {
-    date: value.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }),
-    time: value.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
-  }
+  return { date: format.date(then), time: format.time(then) }
 }
 
 export function fileTypeLabel(fileType: string): string {
@@ -64,6 +61,7 @@ function TypeMark({ fileType }: { fileType: string }) {
 }
 
 function RowMenu({ document, onDelete }: { document: DocumentRecord; onDelete: () => void }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -88,7 +86,7 @@ function RowMenu({ document, onDelete }: { document: DocumentRecord; onDelete: (
       <button
         type="button"
         className="icon-btn"
-        aria-label={`More actions for ${document.filename}`}
+        aria-label={t('common.moreActionsFor', { name: document.filename })}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
@@ -96,7 +94,7 @@ function RowMenu({ document, onDelete }: { document: DocumentRecord; onDelete: (
         <MoreVerticalIcon size={17} />
       </button>
       {open && (
-        <div className="menu align-end" role="menu" aria-label={`${document.filename} actions`}>
+        <div className="menu align-end" role="menu" aria-label={t('common.actionsFor', { name: document.filename })}>
           <button
             type="button"
             role="menuitem"
@@ -105,10 +103,10 @@ function RowMenu({ document, onDelete }: { document: DocumentRecord; onDelete: (
               setOpen(false)
               onDelete()
             }}
-            aria-label={`Delete ${document.filename}`}
+            aria-label={t('common.deleteNamed', { name: document.filename })}
           >
             <TrashIcon size={14} />
-            Delete
+            {t('common.delete')}
           </button>
         </div>
       )}
@@ -126,6 +124,7 @@ export interface DocumentTableProps {
 
 /** Real document records in the reference's table layout, with an expandable details row. */
 export function DocumentTable({ documents, selected, onToggleSelected, onToggleAll, onDelete }: DocumentTableProps) {
+  const { t, format } = useI18n()
   const [expanded, setExpanded] = useState<string | null>(null)
   const allSelected = documents.length > 0 && documents.every((doc) => selected.includes(doc.id))
 
@@ -138,26 +137,26 @@ export function DocumentTable({ documents, selected, onToggleSelected, onToggleA
               <input
                 type="checkbox"
                 className="atlas-checkbox"
-                aria-label="Select all documents"
+                aria-label={t('documentTable.selectAll')}
                 checked={allSelected}
                 onChange={onToggleAll}
               />
             </th>
-            <th scope="col">Name</th>
-            <th scope="col">Type</th>
-            <th scope="col">Size</th>
-            <th scope="col">Pages</th>
-            <th scope="col">Chunks</th>
-            <th scope="col">Status</th>
-            <th scope="col">Uploaded</th>
+            <th scope="col">{t('common.name')}</th>
+            <th scope="col">{t('documentTable.type')}</th>
+            <th scope="col">{t('documentTable.size')}</th>
+            <th scope="col">{t('documentTable.pages')}</th>
+            <th scope="col">{t('documentTable.chunks')}</th>
+            <th scope="col">{t('documentTable.status')}</th>
+            <th scope="col">{t('documentTable.uploaded')}</th>
             <th scope="col" className="doc-col-actions">
-              Actions
+              {t('documentTable.actions')}
             </th>
           </tr>
         </thead>
         <tbody>
           {documents.map((document) => {
-            const uploaded = uploadedParts(document.uploaded_at)
+            const uploaded = uploadedParts(format, document.uploaded_at)
             const isExpanded = expanded === document.id
             return (
               <Fragment key={document.id}>
@@ -166,7 +165,7 @@ export function DocumentTable({ documents, selected, onToggleSelected, onToggleA
                     <input
                       type="checkbox"
                       className="atlas-checkbox"
-                      aria-label={`Select ${document.filename}`}
+                      aria-label={t('common.selectNamed', { name: document.filename })}
                       checked={selected.includes(document.id)}
                       onChange={() => onToggleSelected(document.id)}
                     />
@@ -178,7 +177,7 @@ export function DocumentTable({ documents, selected, onToggleSelected, onToggleA
                   <td>
                     <span className="badge type-badge">{fileTypeLabel(document.file_type)}</span>
                   </td>
-                  <td>{formatBytes(document.size_bytes)}</td>
+                  <td>{format.bytes(document.size_bytes)}</td>
                   <td>{document.page_count || '—'}</td>
                   <td>{document.chunk_count || '—'}</td>
                   <td>
@@ -193,7 +192,9 @@ export function DocumentTable({ documents, selected, onToggleSelected, onToggleA
                       <button
                         type="button"
                         className={`icon-btn${isExpanded ? ' active' : ''}`}
-                        aria-label={`${isExpanded ? 'Hide' : 'View'} details for ${document.filename}`}
+                        aria-label={t(isExpanded ? 'documentTable.hideDetails' : 'documentTable.viewDetails', {
+                          name: document.filename,
+                        })}
                         aria-expanded={isExpanded}
                         onClick={() => setExpanded(isExpanded ? null : document.id)}
                       >
@@ -208,20 +209,20 @@ export function DocumentTable({ documents, selected, onToggleSelected, onToggleA
                     <td colSpan={9}>
                       <dl className="doc-details">
                         <div>
-                          <dt>Content type</dt>
+                          <dt>{t('documentTable.contentType')}</dt>
                           <dd>{document.content_type || '—'}</dd>
                         </div>
                         <div>
-                          <dt>Checksum</dt>
+                          <dt>{t('documentTable.checksum')}</dt>
                           <dd className="mono">{document.checksum || '—'}</dd>
                         </div>
                         <div>
-                          <dt>Document id</dt>
+                          <dt>{t('documentTable.documentId')}</dt>
                           <dd className="mono">{document.id}</dd>
                         </div>
                         {document.error && (
                           <div>
-                            <dt>Error</dt>
+                            <dt>{t('documentTable.error')}</dt>
                             <dd className="error-text">{document.error}</dd>
                           </div>
                         )}

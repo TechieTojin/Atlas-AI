@@ -24,8 +24,12 @@ function systemTheme(): Theme {
   return 'dark'
 }
 
+export function initialTheme(): Theme {
+  return storedTheme() ?? systemTheme()
+}
+
 export function useTheme(): { theme: Theme; toggleTheme: () => void } {
-  const [theme, setTheme] = useState<Theme>(() => storedTheme() ?? systemTheme())
+  const [theme, setTheme] = useState<Theme>(initialTheme)
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme

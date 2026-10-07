@@ -1,4 +1,5 @@
 import { createElement, useMemo } from 'react'
+import { useI18n } from '../i18n'
 import type { Claim, Evidence, Source } from '../types'
 import { isSourcesSection, isSummarySection, splitSections, type ReportSection } from '../utils/report'
 import { CitedMarkdown, useSourceDrawer } from './CitedReport'
@@ -28,13 +29,14 @@ export function ReportSections({
   sources,
   evidence = [],
   loadClaims,
-  emptyNote = 'No report was produced.',
+  emptyNote,
 }: ReportSectionsProps) {
+  const { t } = useI18n()
   const sections = useMemo(() => splitSections(markdown), [markdown])
   const { onCite, drawer } = useSourceDrawer({ sources, evidence, loadClaims })
 
   if (!markdown || sections.length === 0) {
-    return <p className="empty-note">{emptyNote}</p>
+    return <p className="empty-note">{emptyNote ?? t('report.noReport')}</p>
   }
 
   let number = 0
@@ -51,7 +53,7 @@ export function ReportSections({
             id={`section-${section.id}`}
             className={`report-card ${kind}`}
             data-report-section={section.id}
-            aria-label={section.title || 'Summary'}
+            aria-label={section.title || t('report.summary')}
           >
             <header className="report-card-head">
               <span className={`report-card-badge ${kind}`} aria-hidden="true">
@@ -67,7 +69,7 @@ export function ReportSections({
                 {section.title ? (
                   <SectionHeading section={section} className="report-card-title" />
                 ) : (
-                  <h2 className="report-card-title">Summary</h2>
+                  <h2 className="report-card-title">{t('report.summary')}</h2>
                 )}
               </div>
             </header>

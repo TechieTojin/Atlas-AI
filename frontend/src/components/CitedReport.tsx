@@ -9,8 +9,8 @@ import {
   type ReactNode,
 } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
+import { useI18n, type Translate } from '../i18n'
 import type { Claim, Evidence, Source } from '../types'
-import { formatDate } from '../utils/format'
 import { ExtractionBadge } from './EvidenceList'
 import { QualityBadge } from './QualityBadge'
 import { ExternalIcon, FileIcon, XIcon } from './icons'
@@ -21,6 +21,7 @@ function splitCitations(
   text: string,
   validIndexes: Set<number>,
   onCite: (index: number) => void,
+  t: Translate,
 ): ReactNode[] {
   const parts: ReactNode[] = []
   let lastIndex = 0
@@ -37,7 +38,7 @@ function splitCitations(
         key={`cite-${key++}`}
         type="button"
         className="citation"
-        aria-label={`View source ${citation}`}
+        aria-label={t('report.viewSource', { index: String(citation) })}
         onClick={() => onCite(citation)}
       >
         [{citation}]
@@ -65,7 +66,11 @@ const CITED_TAGS = [
   'h6',
 ] as const
 
-function buildComponents(validIndexes: Set<number>, onCite: (index: number) => void): Components {
+function buildComponents(
+  validIndexes: Set<number>,
+  onCite: (index: number) => void,
+  t: Translate,
+): Components {
   const components: Record<string, unknown> = {}
   for (const tag of CITED_TAGS) {
     components[tag] = (props: { children?: ReactNode } & Record<string, unknown>) => {
@@ -73,7 +78,7 @@ function buildComponents(validIndexes: Set<number>, onCite: (index: number) => v
       delete rest.children
       delete rest.node
       const children = Children.map(props.children, (child) =>
-        typeof child === 'string' ? splitCitations(child, validIndexes, onCite) : child,
+        typeof child === 'string' ? splitCitations(child, validIndexes, onCite, t) : child,
       )
       return createElement(tag, rest, children)
     }
@@ -91,10 +96,11 @@ export function CitedMarkdown({
   sources: Source[]
   onCite: (index: number) => void
 }) {
+  const { t } = useI18n()
   const validIndexes = useMemo(() => new Set(sources.map((source) => source.index)), [sources])
   const components = useMemo(
-    () => buildComponents(validIndexes, onCite),
-    [validIndexes, onCite],
+    () => buildComponents(validIndexes, onCite, t),
+    [validIndexes, onCite, t],
   )
   return <ReactMarkdown components={components}>{markdown}</ReactMarkdown>
 }
@@ -105,12 +111,6 @@ function evidenceForSource(source: Source, evidence: Evidence[]): Evidence[] {
     if (source.filename) return item.filename === source.filename
     return item.source_title === source.title
   })
-}
-
-const DRAWER_ORIGIN_LABELS: Record<Evidence['origin'], string> = {
-  web: 'WEB',
-  document: 'DOCUMENT',
-  memory: 'MEMORY',
 }
 
 export interface SourceDrawerProps {
@@ -133,6 +133,7 @@ export function SourceDrawer({
   isNewSource = false,
   onClose,
 }: SourceDrawerProps) {
+  const { t, format } = useI18n()
   const drawerRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -158,7 +159,10 @@ export function SourceDrawer({
         className="drawer"
         role="dialog"
         aria-modal="true"
-        aria-label={`Source ${source.index}: ${source.title || source.filename || 'source'}`}
+        aria-label={t('sourceDrawer.label', {
+          index: String(source.index),
+          title: source.title || source.filename || t('sourceDrawer.fallbackTitle'),
+        })}
         tabIndex={-1}
       >
         <header className="drawer-header">
@@ -168,26 +172,26 @@ export function SourceDrawer({
           <h2 className="drawer-title">
             {source.kind === 'document' ? (source.filename ?? source.title) : source.title}
           </h2>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close source details">
+          <button type="button" className="icon-btn" onClick={onClose} aria-label={t('sourceDrawer.close')}>
             <XIcon size={15} />
           </button>
         </header>
 
         <div className="drawer-body">
           <div className="drawer-meta">
-            {isNewSource && <span className="badge tone-active">New</span>}
+            {isNewSource && <span className="badge tone-active">{t('common.new')}</span>}
             <QualityBadge quality={source.quality} expandable />
             {source.kind === 'document' ? (
               <p className="drawer-document-ref">
                 <FileIcon size={14} className="source-icon" />
                 {source.filename ?? source.title}
-                {source.page !== null ? `, p. ${source.page}` : ''}
+                {source.page !== null ? t('sourceDrawer.page', { page: String(source.page) }) : ''}
               </p>
             ) : (
               source.url && (
                 <a className="btn drawer-open-link" href={source.url} target="_blank" rel="noreferrer">
                   <ExternalIcon size={13} />
-                  <span>Open source</span>
+                  <span>{t('sourceDrawer.openSource')}</span>
                 </a>
               )
             )}
@@ -198,7 +202,7 @@ export function SourceDrawer({
 
           {usageLabels && usageLabels.length > 0 && (
             <section className="drawer-section">
-              <h3 className="panel-heading">Used by runs</h3>
+              <h3 className="panel-heading">{t('sourceDrawer.usedByRuns')}</h3>
               <div className="doc-chips">
                 {usageLabels.map((label, index) => (
                   <span key={index} className="chip">
@@ -210,9 +214,9 @@ export function SourceDrawer({
           )}
 
           <section className="drawer-section">
-            <h3 className="panel-heading">Evidence</h3>
+            <h3 className="panel-heading">{t('sourceDrawer.evidence')}</h3>
             {matchingEvidence.length === 0 ? (
-              <p className="hint-text">No evidence excerpts recorded for this source.</p>
+              <p className="hint-text">{t('sourceDrawer.noEvidence')}</p>
             ) : (
               <div className="evidence-list">
                 {matchingEvidence.map((item, index) => (
@@ -220,15 +224,17 @@ export function SourceDrawer({
                     <header className="evidence-header">
                       <span className="evidence-badges">
                         <span className={`badge origin-${item.origin}`}>
-                          {DRAWER_ORIGIN_LABELS[item.origin]}
+                          {t(`evidence.origin.${item.origin}`)}
                         </span>
                         <ExtractionBadge extraction={item.extraction} />
                       </span>
                     </header>
-                    <p className="evidence-query">Found by: “{item.query}”</p>
+                    <p className="evidence-query">{t('sourceDrawer.foundBy', { query: item.query })}</p>
                     <p className="evidence-snippet">{item.content}</p>
                     {item.fetched_at && (
-                      <p className="evidence-fetched">Fetched {formatDate(item.fetched_at)}</p>
+                      <p className="evidence-fetched">
+                        {t('sourceDrawer.fetched', { date: format.date(item.fetched_at) || '—' })}
+                      </p>
                     )}
                   </article>
                 ))}
@@ -237,18 +243,18 @@ export function SourceDrawer({
           </section>
 
           <section className="drawer-section">
-            <h3 className="panel-heading">Supports these claims</h3>
+            <h3 className="panel-heading">{t('sourceDrawer.claims')}</h3>
             {claimsLoading && (
               <p className="hint-text" role="status">
                 <span className="spinner small" aria-hidden="true" />
-                Loading claims…
+                {t('sourceDrawer.loadingClaims')}
               </p>
             )}
             {!claimsLoading && matchingClaims !== null && matchingClaims.length === 0 && (
-              <p className="hint-text">No extracted claims cite this source.</p>
+              <p className="hint-text">{t('sourceDrawer.noClaims')}</p>
             )}
             {!claimsLoading && matchingClaims === null && (
-              <p className="hint-text">Claims are not available.</p>
+              <p className="hint-text">{t('sourceDrawer.claimsUnavailable')}</p>
             )}
             {!claimsLoading && matchingClaims !== null && matchingClaims.length > 0 && (
               <ul className="claims-list">
@@ -356,9 +362,10 @@ export function CitedReport({
   loadClaims,
   usageBySourceIndex,
   parentSourceCount,
-  emptyNote = 'No report was produced.',
+  emptyNote,
   className = 'report',
 }: CitedReportProps) {
+  const { t } = useI18n()
   const { onCite, drawer } = useSourceDrawer({
     sources,
     evidence,
@@ -368,7 +375,7 @@ export function CitedReport({
   })
 
   if (!markdown) {
-    return <p className="empty-note">{emptyNote}</p>
+    return <p className="empty-note">{emptyNote ?? t('report.noReport')}</p>
   }
 
   return (

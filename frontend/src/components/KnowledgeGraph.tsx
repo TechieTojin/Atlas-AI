@@ -10,6 +10,7 @@ import {
 } from 'd3-force'
 import { api, errorMessage } from '../api/client'
 import { useEventStream } from '../hooks/useEventStream'
+import { useI18n } from '../i18n'
 import type { GraphEdge, GraphNode, KnowledgeGraph } from '../types'
 import { ExternalIcon, XIcon } from './icons'
 
@@ -83,6 +84,7 @@ function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): {
 type Selection = { kind: 'node'; id: string } | { kind: 'edge'; id: string } | null
 
 export function GraphExplorer({ graph }: { graph: KnowledgeGraph }) {
+  const { t } = useI18n()
   const totalNodes = graph.nodes.length
   const capped = totalNodes > MAX_RENDERED_NODES
 
@@ -213,12 +215,12 @@ export function GraphExplorer({ graph }: { graph: KnowledgeGraph }) {
         <input
           type="search"
           className="text-input graph-search"
-          placeholder="Search entities…"
-          aria-label="Search graph entities"
+          placeholder={t('graph.searchPlaceholder')}
+          aria-label={t('graph.searchLabel')}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <div className="tier-chips" role="group" aria-label="Filter by entity type">
+        <div className="tier-chips" role="group" aria-label={t('graph.typeFilterLabel')}>
           {types.map((type) => (
             <button
               key={type}
@@ -236,7 +238,7 @@ export function GraphExplorer({ graph }: { graph: KnowledgeGraph }) {
 
       {capped && (
         <p className="hint-text graph-cap-note">
-          Showing the {MAX_RENDERED_NODES} most connected of {totalNodes} entities.
+          {t('graph.capped', { max: MAX_RENDERED_NODES, total: totalNodes })}
         </p>
       )}
 
@@ -245,7 +247,7 @@ export function GraphExplorer({ graph }: { graph: KnowledgeGraph }) {
           className="graph-svg"
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           role="application"
-          aria-label="Knowledge graph"
+          aria-label={t('graph.label')}
           onWheel={onWheel}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -272,7 +274,11 @@ export function GraphExplorer({ graph }: { graph: KnowledgeGraph }) {
                   y2={entry.target.y}
                   role="button"
                   tabIndex={0}
-                  aria-label={`Relationship: ${entry.source.node.name} ${entry.edge.relation} ${entry.target.node.name}`}
+                  aria-label={t('graph.relationshipLabel', {
+                    source: entry.source.node.name,
+                    relation: entry.edge.relation,
+                    target: entry.target.node.name,
+                  })}
                   onClick={() => setSelection({ kind: 'edge', id: entry.edge.id })}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
@@ -293,7 +299,7 @@ export function GraphExplorer({ graph }: { graph: KnowledgeGraph }) {
                   transform={`translate(${entry.x} ${entry.y})`}
                   role="button"
                   tabIndex={0}
-                  aria-label={`Entity: ${entry.node.name}`}
+                  aria-label={t('graph.entityLabel', { name: entry.node.name })}
                   onClick={() => setSelection({ kind: 'node', id: entry.node.id })}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
@@ -313,16 +319,16 @@ export function GraphExplorer({ graph }: { graph: KnowledgeGraph }) {
         </svg>
 
         {(selectedNode || selectedEdge) && (
-          <aside className="graph-panel" aria-label="Graph selection details">
+          <aside className="graph-panel" aria-label={t('graph.selectionLabel')}>
             <header className="graph-panel-header">
               <h3 className="graph-panel-title">
-                {selectedNode ? selectedNode.node.name : 'Relationship'}
+                {selectedNode ? selectedNode.node.name : t('graph.relationship')}
               </h3>
               <button
                 type="button"
                 className="icon-btn"
                 onClick={() => setSelection(null)}
-                aria-label="Close details"
+                aria-label={t('graph.closeDetails')}
               >
                 <XIcon size={14} />
               </button>
@@ -333,9 +339,9 @@ export function GraphExplorer({ graph }: { graph: KnowledgeGraph }) {
                   {selectedNode.node.type}
                 </span>
                 {selectedNode.node.description && <p>{selectedNode.node.description}</p>}
-                <h4 className="panel-heading">Relationships</h4>
+                <h4 className="panel-heading">{t('graph.relationships')}</h4>
                 {relationshipsOf(selectedNode.node.id).length === 0 ? (
-                  <p className="hint-text">No relationships recorded.</p>
+                  <p className="hint-text">{t('graph.noRelationships')}</p>
                 ) : (
                   <ul className="graph-relation-list">
                     {relationshipsOf(selectedNode.node.id).map((entry) => (
@@ -360,9 +366,9 @@ export function GraphExplorer({ graph }: { graph: KnowledgeGraph }) {
                   {selectedEdge.source.node.name} <em>{selectedEdge.edge.relation}</em>{' '}
                   {selectedEdge.target.node.name}
                 </p>
-                <h4 className="panel-heading">Supporting sources</h4>
+                <h4 className="panel-heading">{t('graph.supportingSources')}</h4>
                 {selectedEdge.edge.support.length === 0 ? (
-                  <p className="hint-text">No supporting sources recorded.</p>
+                  <p className="hint-text">{t('graph.noSupportingSources')}</p>
                 ) : (
                   <ul className="graph-support-list">
                     {selectedEdge.edge.support.map((support, index) => (
@@ -396,6 +402,7 @@ export interface KnowledgeGraphTabProps {
 }
 
 export function KnowledgeGraphTab({ fetchGraph, generate, eventsUrl }: KnowledgeGraphTabProps) {
+  const { t } = useI18n()
   const [graph, setGraph] = useState<KnowledgeGraph | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -443,7 +450,7 @@ export function KnowledgeGraphTab({ fetchGraph, generate, eventsUrl }: Knowledge
     return (
       <div className="page-state" role="status">
         <span className="spinner" aria-hidden="true" />
-        <p>Loading knowledge graph…</p>
+        <p>{t('graph.loading')}</p>
       </div>
     )
   }
@@ -455,10 +462,10 @@ export function KnowledgeGraphTab({ fetchGraph, generate, eventsUrl }: Knowledge
   if (!graph || graph.status === 'NONE') {
     return (
       <div className="page-state">
-        <p>No knowledge graph has been generated for this research yet.</p>
+        <p>{t('graph.none')}</p>
         {generate && (
           <button type="button" className="btn primary" onClick={() => void handleGenerate()}>
-            Generate knowledge graph
+            {t('graph.generate')}
           </button>
         )}
         {error && (
@@ -474,7 +481,7 @@ export function KnowledgeGraphTab({ fetchGraph, generate, eventsUrl }: Knowledge
     return (
       <div className="page-state" role="status">
         <span className="spinner" aria-hidden="true" />
-        <p>Extracting entities and relationships…</p>
+        <p>{t('graph.extracting')}</p>
       </div>
     )
   }
@@ -482,10 +489,10 @@ export function KnowledgeGraphTab({ fetchGraph, generate, eventsUrl }: Knowledge
   if (graph.status === 'FAILED') {
     return (
       <div className="page-state">
-        <p className="error-text">{graph.error || 'Knowledge graph generation failed.'}</p>
+        <p className="error-text">{graph.error || t('graph.failed')}</p>
         {generate && (
           <button type="button" className="btn" onClick={() => void handleGenerate()}>
-            Try again
+            {t('common.tryAgain')}
           </button>
         )}
       </div>
@@ -493,7 +500,7 @@ export function KnowledgeGraphTab({ fetchGraph, generate, eventsUrl }: Knowledge
   }
 
   if (graph.nodes.length === 0) {
-    return <p className="empty-note">The knowledge graph has no entities.</p>
+    return <p className="empty-note">{t('graph.noEntities')}</p>
   }
 
   return <GraphExplorer graph={graph} />

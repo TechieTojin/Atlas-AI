@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, errorMessage } from '../api/client'
+import { agoLabel, useI18n } from '../i18n'
 import type { RunSummary } from '../types'
 import { ModeBadge, StatusDot, TemplateBadge } from './StatusBadge'
-import { relativeTime } from '../utils/format'
 
 export const MIN_COMPARE = 2
 export const MAX_COMPARE = 5
@@ -14,13 +14,14 @@ export const MAX_COMPARE = 5
 export function CompareRunsList({
   runs,
   projectId,
-  emptyNote = 'No research runs yet.',
+  emptyNote,
 }: {
   runs: RunSummary[]
   projectId?: string
   emptyNote?: string
 }) {
   const navigate = useNavigate()
+  const { t, format } = useI18n()
   const [selected, setSelected] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,20 +51,24 @@ export function CompareRunsList({
   }
 
   if (runs.length === 0) {
-    return <p className="empty-note">{emptyNote}</p>
+    return <p className="empty-note">{emptyNote ?? t('compareRuns.empty')}</p>
   }
 
   return (
     <div className="compare-runs">
       <div className="compare-bar">
-        <span className="hint-text">Select 2–5 completed runs to compare.</span>
+        <span className="hint-text">{t('compareRuns.hint')}</span>
         <button
           type="button"
           className="btn primary"
           disabled={!canCompare}
           onClick={() => void handleCompare()}
         >
-          {busy ? 'Comparing…' : `Compare${selected.length > 0 ? ` (${selected.length})` : ''}`}
+          {busy
+            ? t('compareRuns.comparing')
+            : selected.length > 0
+              ? t('compareRuns.compareCount', { count: selected.length })
+              : t('compareRuns.compare')}
         </button>
       </div>
       {error && (
@@ -80,7 +85,7 @@ export function CompareRunsList({
               <input
                 type="checkbox"
                 className="compare-checkbox"
-                aria-label={`Select ${run.title || run.query} for comparison`}
+                aria-label={t('common.selectForComparison', { name: run.title || run.query })}
                 checked={checked}
                 disabled={!completed || (!checked && selected.length >= MAX_COMPARE)}
                 onChange={() => toggle(run.id)}
@@ -92,7 +97,7 @@ export function CompareRunsList({
               <span className="run-row-meta">
                 <TemplateBadge template={run.template} />
                 <ModeBadge mode={run.mode} />
-                <span className="history-meta">{relativeTime(run.created_at)}</span>
+                <span className="history-meta">{agoLabel(t, format, run.created_at)}</span>
               </span>
             </li>
           )

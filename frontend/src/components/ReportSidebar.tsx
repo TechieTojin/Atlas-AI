@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { exportUrl } from '../api/client'
+import { templateName, useI18n } from '../i18n'
 import type { RunDetail } from '../types'
-import { readingTimeLabel, splitSections } from '../utils/report'
-import { templateLabel } from './StatusBadge'
+import { readingMinutes, splitSections } from '../utils/report'
 import {
   ArrowRightIcon,
   DownloadIcon,
@@ -14,21 +14,17 @@ import {
   ShareIcon,
 } from './icons'
 
-function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const then = Date.parse(iso)
-  if (Number.isNaN(then)) return '—'
-  return new Date(then).toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+const DATE_TIME: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
 }
 
 /** Sticky table of contents built from the report's own headings. */
 export function ReportContents({ markdown }: { markdown: string }) {
+  const { t } = useI18n()
   const sections = splitSections(markdown).filter((section) => section.title)
   const [active, setActive] = useState<string | null>(sections[0]?.id ?? null)
 
@@ -65,10 +61,10 @@ export function ReportContents({ markdown }: { markdown: string }) {
   }
 
   return (
-    <nav className="side-card report-contents" aria-label="Report contents">
+    <nav className="side-card report-contents" aria-label={t('reportSidebar.contentsLabel')}>
       <h2 className="side-card-title">
         <ListTreeIcon size={17} />
-        Report Contents
+        {t('reportSidebar.contents')}
       </h2>
       <ol className="contents-list">
         {sections.map((section, index) => {
@@ -97,6 +93,7 @@ export function ReportContents({ markdown }: { markdown: string }) {
 
 /** Export and link actions wired to the run's real export endpoints. */
 export function QuickActions({ runId }: { runId: string }) {
+  const { t } = useI18n()
   const [copied, setCopied] = useState(false)
 
   const copyLink = async () => {
@@ -110,38 +107,38 @@ export function QuickActions({ runId }: { runId: string }) {
   }
 
   return (
-    <section className="side-card quick-actions" aria-label="Quick actions">
+    <section className="side-card quick-actions" aria-label={t('reportSidebar.quickActionsLabel')}>
       <h2 className="side-card-title">
         <RocketIcon size={17} />
-        Quick Actions
+        {t('reportSidebar.quickActions')}
       </h2>
       <ul className="action-list">
         <li>
           <a className="action-row" href={exportUrl(runId, 'pdf')} download>
             <DownloadIcon size={16} />
-            <span>Export as PDF</span>
+            <span>{t('reportSidebar.exportPdf')}</span>
             <ArrowRightIcon size={15} className="action-arrow" />
           </a>
         </li>
         <li>
           <a className="action-row" href={exportUrl(runId, 'markdown')} download>
             <FileTextIcon size={16} />
-            <span>Export as Markdown</span>
+            <span>{t('reportSidebar.exportMarkdown')}</span>
             <ArrowRightIcon size={15} className="action-arrow" />
           </a>
         </li>
         <li>
           <button type="button" className="action-row" onClick={() => void copyLink()}>
             <LinkIcon size={16} />
-            <span>{copied ? 'Link copied' : 'Copy Link'}</span>
+            <span>{copied ? t('common.linkCopied') : t('reportSidebar.copyLink')}</span>
             <ArrowRightIcon size={15} className="action-arrow" />
           </button>
         </li>
         <li>
           {/* Atlas is local-first and has no sharing service; shown disabled rather than faked. */}
-          <button type="button" className="action-row" disabled title="Sharing is not available in Atlas">
+          <button type="button" className="action-row" disabled title={t('reportSidebar.shareUnavailable')}>
             <ShareIcon size={16} />
-            <span>Share Report</span>
+            <span>{t('reportSidebar.shareReport')}</span>
             <ArrowRightIcon size={15} className="action-arrow" />
           </button>
         </li>
@@ -152,20 +149,23 @@ export function QuickActions({ runId }: { runId: string }) {
 
 /** Run metadata from the API plus a client-side reading-time estimate. */
 export function DocumentInfo({ run, projectName }: { run: RunDetail; projectName: string | null }) {
+  const { t, format } = useI18n()
+  const dateTime = (iso: string | null | undefined) => (iso ? format.date(iso, DATE_TIME) || '—' : '—')
+  const minutes = readingMinutes(run.final_report)
   const rows: [string, string][] = [
-    ['Created', formatDateTime(run.created_at)],
-    ['Last Updated', formatDateTime(run.completed_at || run.started_at || run.created_at)],
-    ['Project', projectName ?? (run.project_id ? 'Loading…' : '—')],
-    ['Report Type', templateLabel(run.template)],
-    ['Estimated Reading', readingTimeLabel(run.final_report)],
-    ['Total Sources', String(run.sources.length)],
-    ['Total Evidence', String(run.evidence.length)],
+    [t('reportSidebar.created'), dateTime(run.created_at)],
+    [t('reportSidebar.lastUpdated'), dateTime(run.completed_at || run.started_at || run.created_at)],
+    [t('reportSidebar.project'), projectName ?? (run.project_id ? t('reportSidebar.loading') : '—')],
+    [t('reportSidebar.reportType'), templateName(t, run.template)],
+    [t('reportSidebar.readingTime'), minutes === null ? '—' : format.minutes(minutes)],
+    [t('reportSidebar.totalSources'), format.number(run.sources.length)],
+    [t('reportSidebar.totalEvidence'), format.number(run.evidence.length)],
   ]
   return (
-    <section className="side-card document-info" aria-label="Document info">
+    <section className="side-card document-info" aria-label={t('reportSidebar.documentInfoLabel')}>
       <h2 className="side-card-title">
         <InfoIcon size={17} />
-        Document Info
+        {t('reportSidebar.documentInfo')}
       </h2>
       <dl className="info-list">
         {rows.map(([label, value]) => (

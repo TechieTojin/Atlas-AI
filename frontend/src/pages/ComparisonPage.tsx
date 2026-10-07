@@ -4,11 +4,13 @@ import { api, comparisonExportUrl, errorMessage } from '../api/client'
 import { CitedReport } from '../components/CitedReport'
 import { DownloadIcon, TrashIcon } from '../components/icons'
 import { useEventStream } from '../hooks/useEventStream'
+import { useI18n } from '../i18n'
 import type { Comparison, ComparisonStatus } from '../types'
 
 /** A compact execution summary. Deliberately small: enough to tell why a
  *  comparison took the time it did, without a metrics page. */
 function ComparisonMetricsRow({ comparison }: { comparison: Comparison }) {
+  const { t, format } = useI18n()
   const metrics = comparison.metrics ?? {}
   const seconds =
     comparison.duration_ms > 0
@@ -19,51 +21,59 @@ function ComparisonMetricsRow({ comparison }: { comparison: Comparison }) {
   // A null token count means Ollama never reported one, which is what happens
   // when a request is aborted. Showing 0 would claim the model wrote nothing.
   const tokens = (value: number | null | undefined) =>
-    typeof value === 'number' ? value.toLocaleString() : 'unavailable'
+    typeof value === 'number' ? format.number(value) : t('common.unavailable')
+  const oneDecimal = (value: number, unit: 'second' | 'minute') =>
+    format.number(value, {
+      style: 'unit',
+      unit,
+      unitDisplay: 'narrow',
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    })
 
   if (!metrics.model && seconds === null) return null
 
   return (
-    <dl className="comparison-metrics" role="group" aria-label="Execution details">
+    <dl className="comparison-metrics" role="group" aria-label={t('comparison.detailsLabel')}>
       {seconds !== null && (
         <div>
-          <dt>Elapsed</dt>
-          <dd>{seconds < 60 ? `${seconds.toFixed(1)}s` : `${(seconds / 60).toFixed(1)}m`}</dd>
+          <dt>{t('comparison.elapsed')}</dt>
+          <dd>{seconds < 60 ? oneDecimal(seconds, 'second') : oneDecimal(seconds / 60, 'minute')}</dd>
         </div>
       )}
       {metrics.model && (
         <div>
-          <dt>Model</dt>
+          <dt>{t('comparison.model')}</dt>
           <dd>{metrics.model}</dd>
         </div>
       )}
       {typeof metrics.prefill_ms === 'number' && (
         <div>
-          <dt>Prompt read</dt>
-          <dd>{(metrics.prefill_ms / 1000).toFixed(1)}s</dd>
+          <dt>{t('comparison.promptRead')}</dt>
+          <dd>{oneDecimal(metrics.prefill_ms / 1000, 'second')}</dd>
         </div>
       )}
       {typeof metrics.generation_ms === 'number' && (
         <div>
-          <dt>Writing</dt>
-          <dd>{(metrics.generation_ms / 1000).toFixed(1)}s</dd>
+          <dt>{t('comparison.writing')}</dt>
+          <dd>{oneDecimal(metrics.generation_ms / 1000, 'second')}</dd>
         </div>
       )}
       <div>
-        <dt>Output tokens</dt>
+        <dt>{t('comparison.outputTokens')}</dt>
         <dd>
           {tokens(metrics.output_tokens)}
-          {metrics.output_cap_reached === true && ' (cap reached)'}
+          {metrics.output_cap_reached === true && t('comparison.capReached')}
         </dd>
       </div>
       <div>
-        <dt>Prompt tokens</dt>
+        <dt>{t('comparison.promptTokens')}</dt>
         <dd>{tokens(metrics.prompt_tokens)}</dd>
       </div>
       {typeof metrics.repair_calls === 'number' && metrics.repair_calls > 0 && (
         <div>
-          <dt>Repairs</dt>
-          <dd>{metrics.repair_calls}</dd>
+          <dt>{t('comparison.repairs')}</dt>
+          <dd>{format.number(metrics.repair_calls)}</dd>
         </div>
       )}
     </dl>
@@ -73,6 +83,7 @@ function ComparisonMetricsRow({ comparison }: { comparison: Comparison }) {
 export function ComparisonPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { t, format } = useI18n()
   const [comparison, setComparison] = useState<Comparison | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -141,7 +152,7 @@ export function ComparisonPage() {
     return (
       <div className="page-state" role="status">
         <span className="spinner" aria-hidden="true" />
-        <p>Loading comparison…</p>
+        <p>{t('comparison.loading')}</p>
       </div>
     )
   }
@@ -149,10 +160,10 @@ export function ComparisonPage() {
   if (error || !comparison) {
     return (
       <div className="page-state">
-        <h1>Comparison not found</h1>
-        <p className="error-text">{error ?? 'This comparison does not exist.'}</p>
+        <h1>{t('comparison.notFound')}</h1>
+        <p className="error-text">{error ?? t('comparison.notExist')}</p>
         <Link className="btn primary" to="/">
-          Back to research
+          {t('common.backToResearch')}
         </Link>
       </div>
     )
@@ -171,7 +182,7 @@ export function ComparisonPage() {
   }
 
   const handleDelete = async () => {
-    if (!window.confirm('Delete this comparison? This cannot be undone.')) return
+    if (!window.confirm(t('comparison.confirmDelete'))) return
     setActionError(null)
     try {
       await api.deleteComparison(comparison.id)
@@ -185,7 +196,7 @@ export function ComparisonPage() {
     <div className="run-page comparison-page">
       <header className="run-header">
         <div className="run-header-main">
-          <h1 className="run-query">{comparison.title || 'Comparison'}</h1>
+          <h1 className="run-query">{comparison.title || t('comparison.fallbackTitle')}</h1>
           <div className="run-meta">
             <span
               className={`badge ${
@@ -198,7 +209,7 @@ export function ComparisonPage() {
                       : 'tone-active'
               }`}
             >
-              {comparison.status}
+              {t(`comparison.status.${comparison.status}`)}
             </span>
           </div>
           <div className="doc-chips comparison-run-chips">
@@ -218,24 +229,24 @@ export function ComparisonPage() {
               disabled={cancelling || comparison.status === 'CANCELLING'}
             >
               <span>
-                {comparison.status === 'CANCELLING' ? 'Cancelling…' : 'Cancel'}
+                {comparison.status === 'CANCELLING' ? t('common.cancelling') : t('common.cancel')}
               </span>
             </button>
           )}
           {comparison.status === 'COMPLETED' && (
             <a className="btn" href={comparisonExportUrl(comparison.id)} download>
               <DownloadIcon size={14} />
-              <span>Export</span>
+              <span>{t('common.export')}</span>
             </a>
           )}
           <button
             type="button"
             className="btn danger-ghost"
             onClick={() => void handleDelete()}
-            aria-label="Delete comparison"
+            aria-label={t('comparison.deleteLabel')}
           >
             <TrashIcon size={14} />
-            <span>Delete</span>
+            <span>{t('common.delete')}</span>
           </button>
         </div>
       </header>
@@ -251,32 +262,30 @@ export function ComparisonPage() {
           <span className="spinner" aria-hidden="true" />
           <p>
             {comparison.status === 'CANCELLING'
-              ? 'Stopping the comparison…'
-              : `Comparing ${comparison.run_ids.length} runs…`}
+              ? t('comparison.stopping')
+              : t('comparison.comparingRuns', { count: comparison.run_ids.length })}
           </p>
         </div>
       )}
 
       {comparison.status === 'TIMED_OUT' && (
         <section className="card failure-card">
-          <h2>Comparison timed out</h2>
-          <p className="error-text">
-            {comparison.error || 'This comparison ran past its time limit and was stopped.'}
-          </p>
+          <h2>{t('comparison.timedOutTitle')}</h2>
+          <p className="error-text">{comparison.error || t('comparison.timedOutText')}</p>
         </section>
       )}
 
       {comparison.status === 'CANCELLED' && (
         <section className="card failure-card">
-          <h2>Comparison cancelled</h2>
-          <p className="hint-text">{comparison.error || 'This comparison was cancelled.'}</p>
+          <h2>{t('comparison.cancelledTitle')}</h2>
+          <p className="hint-text">{comparison.error || t('comparison.cancelledText')}</p>
         </section>
       )}
 
       {comparison.status === 'FAILED' && (
         <section className="card failure-card">
-          <h2>Comparison failed</h2>
-          <p className="error-text">{comparison.error || 'This comparison did not finish.'}</p>
+          <h2>{t('comparison.failedTitle')}</h2>
+          <p className="error-text">{comparison.error || t('comparison.failedText')}</p>
         </section>
       )}
 
@@ -284,21 +293,21 @@ export function ComparisonPage() {
 
       {comparison.status === 'COMPLETED' && (
         <>
-          <section aria-label="Source overlap">
-            <h3 className="panel-heading">Source overlap</h3>
+          <section aria-label={t('comparison.overlap')}>
+            <h3 className="panel-heading">{t('comparison.overlap')}</h3>
             <div className="metric-grid">
               <div className="metric-card">
-                <span className="metric-value">{comparison.overlap_stats.total_sources}</span>
-                <span className="metric-label">Total sources</span>
+                <span className="metric-value">{format.number(comparison.overlap_stats.total_sources)}</span>
+                <span className="metric-label">{t('comparison.totalSources')}</span>
               </div>
               <div className="metric-card">
-                <span className="metric-value">{comparison.overlap_stats.shared_sources}</span>
-                <span className="metric-label">Shared sources</span>
+                <span className="metric-value">{format.number(comparison.overlap_stats.shared_sources)}</span>
+                <span className="metric-label">{t('comparison.sharedSources')}</span>
               </div>
               {Object.entries(comparison.overlap_stats.unique_per_run).map(([runId, count]) => (
                 <div key={runId} className="metric-card">
-                  <span className="metric-value">{count}</span>
-                  <span className="metric-label">Unique to {runLabel(runId)}</span>
+                  <span className="metric-value">{format.number(count)}</span>
+                  <span className="metric-label">{t('comparison.uniqueTo', { run: runLabel(runId) })}</span>
                 </div>
               ))}
             </div>
@@ -309,7 +318,7 @@ export function ComparisonPage() {
             sources={sources}
             loadClaims={loadClaims}
             usageBySourceIndex={usageBySourceIndex}
-            emptyNote="No comparison report was produced."
+            emptyNote={t('comparison.noReport')}
           />
         </>
       )}

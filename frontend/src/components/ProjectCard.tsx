@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { ProjectWithCounts } from '../types'
-import { relativeTime } from '../utils/format'
+import { agoLabel, useI18n, type Translate } from '../i18n'
 import { ClockIcon, FolderIcon, FolderOpenIcon, LinkIcon, MoreVerticalIcon } from './icons'
 
-export function countsLine(counts: { runs: number; documents: number; comparisons: number }): string {
+export function countsLine(
+  t: Translate,
+  counts: { runs: number; documents: number; comparisons: number },
+): string {
   const parts = [
-    `${counts.runs} run${counts.runs === 1 ? '' : 's'}`,
-    `${counts.documents} document${counts.documents === 1 ? '' : 's'}`,
+    t('projectCard.runs', { count: counts.runs }),
+    t('projectCard.documents', { count: counts.documents }),
   ]
   if (counts.comparisons > 0) {
-    parts.push(`${counts.comparisons} comparison${counts.comparisons === 1 ? '' : 's'}`)
+    parts.push(t('projectCard.comparisons', { count: counts.comparisons }))
   }
   return parts.join(' · ')
 }
@@ -61,6 +64,7 @@ function CardWave({ variant }: { variant: number }) {
 /** Dark glass project card showing real project data, with a kebab menu. */
 export function ProjectCard({ project, index, layout = 'grid' }: { project: ProjectWithCounts; index: number; layout?: 'grid' | 'list' }) {
   const navigate = useNavigate()
+  const { t, format } = useI18n()
   const [menuOpen, setMenuOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -103,7 +107,7 @@ export function ProjectCard({ project, index, layout = 'grid' }: { project: Proj
           <button
             type="button"
             className="icon-btn"
-            aria-label={`More actions for ${project.name}`}
+            aria-label={t('common.moreActionsFor', { name: project.name })}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((value) => !value)}
@@ -111,7 +115,7 @@ export function ProjectCard({ project, index, layout = 'grid' }: { project: Proj
             <MoreVerticalIcon size={18} />
           </button>
           {menuOpen && (
-            <div className="menu" role="menu" aria-label={`${project.name} actions`}>
+            <div className="menu" role="menu" aria-label={t('common.actionsFor', { name: project.name })}>
               <button
                 type="button"
                 role="menuitem"
@@ -119,11 +123,11 @@ export function ProjectCard({ project, index, layout = 'grid' }: { project: Proj
                 onClick={() => navigate(`/projects/${project.id}`)}
               >
                 <FolderOpenIcon size={14} />
-                Open project
+                {t('projectCard.openProject')}
               </button>
               <button type="button" role="menuitem" className="menu-item" onClick={() => void copyLink()}>
                 <LinkIcon size={14} />
-                {copied ? 'Link copied' : 'Copy link'}
+                {copied ? t('common.linkCopied') : t('common.copyLink')}
               </button>
             </div>
           )}
@@ -138,11 +142,11 @@ export function ProjectCard({ project, index, layout = 'grid' }: { project: Proj
       <div className="project-card-meta">
         <span className="project-card-counts">
           <FolderIcon size={15} />
-          <span>{countsLine(project.counts)}</span>
+          <span>{countsLine(t, project.counts)}</span>
         </span>
         <span className="project-card-updated">
           <ClockIcon size={15} />
-          <span>Updated {relativeTime(project.updated_at)}</span>
+          <span>{t('time.updated', { time: agoLabel(t, format, project.updated_at) })}</span>
         </span>
       </div>
       {layout === 'grid' && <CardWave variant={index} />}

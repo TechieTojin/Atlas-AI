@@ -1,6 +1,7 @@
 import { BarChartIcon, FileTextIcon, SearchIcon } from '../icons'
 import { FloatingCard } from './FloatingCard'
 import { Leaf } from './Leaf'
+import { useI18n } from '../../i18n'
 
 function Robot() {
   return (
@@ -132,6 +133,7 @@ function Folder() {
 
 /** Research robot with a dimensional Atlas folder, floating panels and leaves. */
 export function ProjectsHeroArt() {
+  const { t } = useI18n()
   return (
     <div className="projects-art" aria-hidden="true">
       <div className="projects-art-glow" />
@@ -152,7 +154,7 @@ export function ProjectsHeroArt() {
 
       <div className="projects-search-card">
         <SearchIcon size={16} />
-        <span>Turn ideas into insights</span>
+        <span>{t('projects.art')}</span>
       </div>
 
       <Robot />
@@ -162,11 +164,11 @@ export function ProjectsHeroArt() {
       <FloatingCard icon={<FileTextIcon size={15} />} title="" lines={3} tilt={5} className="projects-card-b" />
 
       <p className="script-note projects-script">
-        Research
+        {t('projects.scriptLine1')}
         <br />
-        Smarter
+        {t('projects.scriptLine2')}
         <br />
-        Together
+        {t('projects.scriptLine3')}
         <span className="script-sparkle">✦</span>
       </p>
       <svg className="projects-arrow" viewBox="0 0 80 60">

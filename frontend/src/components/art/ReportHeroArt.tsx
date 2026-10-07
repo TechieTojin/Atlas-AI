@@ -1,3 +1,4 @@
+import { useI18n } from '../../i18n'
 import { BarChartIcon, ShieldCheckIcon } from '../icons'
 
 /**
@@ -8,6 +9,7 @@ import { BarChartIcon, ShieldCheckIcon } from '../icons'
  * small analytics card. `label` is real run data (the template name).
  */
 export function ReportHeroArt({ label }: { label: string }) {
+  const { t } = useI18n()
   return (
     <div className="report-art" aria-hidden="true">
       <svg className="report-art-svg" viewBox="0 0 520 260" preserveAspectRatio="xMidYMid slice">
@@ -76,7 +78,7 @@ export function ReportHeroArt({ label }: { label: string }) {
         </span>
         <span className="report-art-card-text">
           <span className="report-art-card-title">{label}</span>
-          <span className="report-art-card-sub">Report</span>
+          <span className="report-art-card-sub">{t('run.reportArt')}</span>
         </span>
       </div>
     </div>

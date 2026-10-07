@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api, errorMessage, notifyRunsChanged } from '../api/client'
 import { useDocuments } from '../hooks/useDocuments'
 import { useTemplates } from '../hooks/useTemplates'
+import { templateDescription, templateEntryName, useI18n } from '../i18n'
 import type { RunMode, SourceScope } from '../types'
 import {
   ArrowRightIcon,
@@ -17,36 +18,22 @@ import {
   SparkleIcon,
 } from './icons'
 
-const MODES: {
-  value: RunMode
-  label: string
-  description: string
-  icon: typeof BoltIcon
-}[] = [
-  { value: 'FAST', label: 'Fast', description: 'Quick answers with trusted sources', icon: BoltIcon },
-  {
-    value: 'DEEP',
-    label: 'Deep',
-    description: 'In-depth, multi-agent research with detailed analysis',
-    icon: SparkleIcon,
-  },
+const MODES: { value: RunMode; icon: typeof BoltIcon }[] = [
+  { value: 'FAST', icon: BoltIcon },
+  { value: 'DEEP', icon: SparkleIcon },
 ]
 
-const SCOPES: { value: SourceScope; label: string; menuLabel: string; icon: typeof GlobeIcon }[] = [
-  { value: 'WEB', label: 'Web', menuLabel: 'Web Search', icon: GlobeIcon },
-  { value: 'DOCUMENTS', label: 'Documents', menuLabel: 'Documents', icon: FileTextIcon },
-  {
-    value: 'WEB_AND_DOCUMENTS',
-    label: 'Web + Documents',
-    menuLabel: 'Web + Documents',
-    icon: LayersIcon,
-  },
+const SCOPES: { value: SourceScope; icon: typeof GlobeIcon }[] = [
+  { value: 'WEB', icon: GlobeIcon },
+  { value: 'DOCUMENTS', icon: FileTextIcon },
+  { value: 'WEB_AND_DOCUMENTS', icon: LayersIcon },
 ]
 
 export const CUSTOM_TEMPLATE_MAX_LENGTH = 2000
 
 export function QueryForm({ projectId }: { projectId?: string }) {
   const navigate = useNavigate()
+  const { t, uiLanguage } = useI18n()
   const { documents } = useDocuments()
   const { templates } = useTemplates()
   const [query, setQuery] = useState('')
@@ -121,15 +108,15 @@ export function QueryForm({ projectId }: { projectId?: string }) {
   }
 
   return (
-    <form className="query-form" onSubmit={handleSubmit} aria-label="Start research">
+    <form className="query-form" onSubmit={handleSubmit} aria-label={t('queryForm.label')}>
       <div className="query-panel">
         <label className="visually-hidden" htmlFor={queryId}>
-          Research question
+          {t('queryForm.questionLabel')}
         </label>
         <textarea
           id={queryId}
           className="query-input"
-          placeholder="What would you like to research?"
+          placeholder={t('queryForm.placeholder')}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           rows={2}
@@ -142,11 +129,11 @@ export function QueryForm({ projectId }: { projectId?: string }) {
               className={`tool-pill${attachOpen ? ' active' : ''}`}
               onClick={() => setAttachOpen((value) => !value)}
               aria-pressed={attachOpen}
-              aria-label="Attach files"
+              aria-label={t('queryForm.attachFilesLabel')}
               disabled={submitting}
             >
               <PaperclipIcon size={15} />
-              <span>Attach Files</span>
+              <span>{t('queryForm.attachFiles')}</span>
               {selectedDocs.length > 0 && (
                 <span className="tool-pill-count">{selectedDocs.length}</span>
               )}
@@ -154,7 +141,7 @@ export function QueryForm({ projectId }: { projectId?: string }) {
             <span className="tool-pill select-pill">
               <ScopeIcon size={15} />
               <label className="visually-hidden" htmlFor={scopeMenuId}>
-                Search scope
+                {t('queryForm.scopeLabel')}
               </label>
               <select
                 id={scopeMenuId}
@@ -165,7 +152,7 @@ export function QueryForm({ projectId }: { projectId?: string }) {
               >
                 {SCOPES.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.menuLabel}
+                    {t(`scopes.${option.value}.menu`)}
                   </option>
                 ))}
               </select>
@@ -176,15 +163,15 @@ export function QueryForm({ projectId }: { projectId?: string }) {
             type="submit"
             className="query-submit"
             disabled={!canSubmit}
-            aria-label="Submit research question"
+            aria-label={t('queryForm.submitLabel')}
           >
             <ArrowUpIcon size={22} />
           </button>
         </div>
       </div>
 
-      <section className="form-section" aria-label="Research mode">
-        <h2 className="form-section-title">Research Mode</h2>
+      <section className="form-section" aria-label={t('queryForm.modeSection')}>
+        <h2 className="form-section-title">{t('queryForm.modeTitle')}</h2>
         <div className="mode-cards" role="group">
           {MODES.map((option) => {
             const Icon = option.icon
@@ -202,8 +189,8 @@ export function QueryForm({ projectId }: { projectId?: string }) {
                   <Icon size={22} />
                 </span>
                 <span className="mode-card-body">
-                  <span className="mode-card-label">{option.label}</span>
-                  <span className="mode-card-desc">{option.description}</span>
+                  <span className="mode-card-label">{t(`modes.${option.value}.label`)}</span>
+                  <span className="mode-card-desc">{t(`modes.${option.value}.description`)}</span>
                 </span>
                 <span className="mode-card-radio" aria-hidden="true">
                   {selected && <CheckCircleIcon size={22} />}
@@ -215,8 +202,8 @@ export function QueryForm({ projectId }: { projectId?: string }) {
       </section>
 
       <div className="form-two-col">
-        <section className="form-section" aria-label="Source scope">
-          <h2 className="form-section-title">Sources</h2>
+        <section className="form-section" aria-label={t('queryForm.sourcesSection')}>
+          <h2 className="form-section-title">{t('queryForm.sourcesTitle')}</h2>
           <div className="source-buttons" role="group">
             {SCOPES.map((option) => {
               const Icon = option.icon
@@ -231,7 +218,7 @@ export function QueryForm({ projectId }: { projectId?: string }) {
                   disabled={submitting}
                 >
                   <Icon size={16} />
-                  <span>{option.label}</span>
+                  <span>{t(`scopes.${option.value}.label`)}</span>
                 </button>
               )
             })}
@@ -240,34 +227,38 @@ export function QueryForm({ projectId }: { projectId?: string }) {
 
         <section className="form-section template-section">
           <h2 className="form-section-title" id={`${templateId}-title`}>
-            Report Template
+            {t('queryForm.templateTitle')}
           </h2>
           <div className="template-card">
             <FileTextIcon size={17} className="template-card-icon" />
             <select
               id={templateId}
               className="template-select"
-              aria-label="Report template"
+              aria-label={t('queryForm.templateLabel')}
               value={template}
               onChange={(event) => setTemplate(event.target.value)}
               disabled={submitting}
             >
               {templates.map((entry) => (
                 <option key={entry.id} value={entry.id}>
-                  {entry.name}
+                  {templateEntryName(t, uiLanguage, entry)}
                 </option>
               ))}
             </select>
             <ChevronDownIcon size={18} className="template-card-chevron" />
           </div>
-          {selectedTemplate && <p className="template-hint">{selectedTemplate.description}</p>}
+          {selectedTemplate && (
+            <p className="template-hint">
+              {templateDescription(t, uiLanguage, selectedTemplate, CUSTOM_TEMPLATE_MAX_LENGTH)}
+            </p>
+          )}
         </section>
       </div>
 
       {isCustomTemplate && (
-        <div className="control-group custom-template" aria-label="Custom template instructions">
+        <div className="control-group custom-template" aria-label={t('queryForm.customSection')}>
           <label className="control-label" htmlFor={customId}>
-            Custom template instructions (required)
+            {t('queryForm.customLabel')}
           </label>
           <textarea
             id={customId}
@@ -275,25 +266,28 @@ export function QueryForm({ projectId }: { projectId?: string }) {
             rows={4}
             required
             maxLength={CUSTOM_TEMPLATE_MAX_LENGTH}
-            placeholder="Describe how the report should be structured and written…"
+            placeholder={t('queryForm.customPlaceholder')}
             value={customTemplate}
             onChange={(event) => setCustomTemplate(event.target.value)}
             disabled={submitting}
           />
           <p className="hint-text">
-            {customTemplate.length}/{CUSTOM_TEMPLATE_MAX_LENGTH} characters
+            {t('common.characterCount', {
+              count: String(customTemplate.length),
+              max: String(CUSTOM_TEMPLATE_MAX_LENGTH),
+            })}
           </p>
         </div>
       )}
 
       {showDocumentPicker && (
-        <div className="control-group document-picker" aria-label="Document picker">
+        <div className="control-group document-picker" aria-label={t('queryForm.documentPicker')}>
           <span className="control-label">
-            Documents{docsRequired ? ' (select at least one)' : ''}
+            {docsRequired ? t('queryForm.documentsRequired') : t('queryForm.documents')}
           </span>
           {readyDocuments.length === 0 ? (
             <p className="hint-text">
-              No ready documents. Upload some on the Documents page first.
+              {t('queryForm.noReadyDocuments')}
             </p>
           ) : (
             <div className="doc-chips">
@@ -328,7 +322,7 @@ export function QueryForm({ projectId }: { projectId?: string }) {
               disabled={submitting}
             />
             <span className="toggle-box" aria-hidden="true" />
-            <span>Review plan before research</span>
+            <span>{t('queryForm.reviewPlan')}</span>
           </label>
           <div className="toggle-stacked">
             <label className="toggle-label">
@@ -339,13 +333,13 @@ export function QueryForm({ projectId }: { projectId?: string }) {
                 disabled={submitting}
               />
               <span className="toggle-box" aria-hidden="true" />
-              <span>Use research memory</span>
+              <span>{t('queryForm.useMemory')}</span>
             </label>
-            <span className="toggle-hint">Get better results based on your past research</span>
+            <span className="toggle-hint">{t('queryForm.useMemoryHint')}</span>
           </div>
         </div>
         <button type="submit" className="btn primary glow large start-btn" disabled={!canSubmit}>
-          <span>{submitting ? 'Starting…' : 'Start Research'}</span>
+          <span>{submitting ? t('queryForm.starting') : t('queryForm.start')}</span>
           <ArrowRightIcon size={16} />
         </button>
       </div>

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
+import { tierLabel, useI18n } from '../i18n'
 import type { QualityTier, Source } from '../types'
-import { QualityBadge, TIER_LABELS, tierRank } from './QualityBadge'
+import { QualityBadge, tierRank } from './QualityBadge'
 import { ExternalIcon, FileIcon } from './icons'
 
 type SortKey = 'index' | 'quality'
@@ -18,6 +19,7 @@ function sourceTier(source: Source): QualityTier | null {
 }
 
 export function SourceRow({ source, trailing }: { source: Source; trailing?: React.ReactNode }) {
+  const { t } = useI18n()
   return (
     <li className="source-item">
       <span className="source-index" aria-hidden="true">
@@ -28,9 +30,9 @@ export function SourceRow({ source, trailing }: { source: Source; trailing?: Rea
           <span className="source-title">
             <FileIcon className="source-icon" />
             {source.filename ?? source.title}
-            {source.page !== null ? `, p. ${source.page}` : ''}
+            {source.page !== null ? t('sourceDrawer.page', { page: String(source.page) }) : ''}
           </span>
-          <span className="badge origin-document">Document</span>
+          <span className="badge origin-document">{t('sources.document')}</span>
           {trailing}
         </span>
       ) : (
@@ -44,10 +46,10 @@ export function SourceRow({ source, trailing }: { source: Source; trailing?: Rea
                 target="_blank"
                 rel="noreferrer"
                 className="source-link"
-                aria-label={`Open ${source.title} in a new tab`}
+                aria-label={t('sources.openInNewTab', { title: source.title })}
               >
                 <ExternalIcon size={13} />
-                <span>Open</span>
+                <span>{t('common.open')}</span>
               </a>
             )}
           </span>
@@ -60,6 +62,7 @@ export function SourceRow({ source, trailing }: { source: Source; trailing?: Rea
 }
 
 export function SourcesList({ sources }: { sources: Source[] }) {
+  const { t } = useI18n()
   const [sort, setSort] = useState<SortKey>('index')
   const [tierFilter, setTierFilter] = useState<QualityTier | null>(null)
 
@@ -82,7 +85,7 @@ export function SourcesList({ sources }: { sources: Source[] }) {
   }, [sources, sort, tierFilter])
 
   if (sources.length === 0) {
-    return <p className="empty-note">No sources were collected for this run.</p>
+    return <p className="empty-note">{t('sources.empty')}</p>
   }
 
   const hasQuality = tierCounts.size > 0
@@ -92,25 +95,25 @@ export function SourcesList({ sources }: { sources: Source[] }) {
       {hasQuality && (
         <div className="sources-toolbar">
           <label className="sort-label">
-            Sort by{' '}
+            {t('sources.sortBy')}{' '}
             <select
               className="select-input compact"
               value={sort}
               onChange={(event) => setSort(event.target.value as SortKey)}
-              aria-label="Sort sources"
+              aria-label={t('sources.sortLabel')}
             >
-              <option value="index">Number</option>
-              <option value="quality">Quality</option>
+              <option value="index">{t('sources.sortNumber')}</option>
+              <option value="quality">{t('sources.sortQuality')}</option>
             </select>
           </label>
-          <div className="tier-chips" role="group" aria-label="Filter sources by quality tier">
+          <div className="tier-chips" role="group" aria-label={t('sources.tierFilterLabel')}>
             <button
               type="button"
               className={`chip${tierFilter === null ? ' selected' : ''}`}
               aria-pressed={tierFilter === null}
               onClick={() => setTierFilter(null)}
             >
-              All
+              {t('common.all')}
             </button>
             {TIER_ORDER.filter((tier) => tierCounts.has(tier)).map((tier) => (
               <button
@@ -121,18 +124,18 @@ export function SourcesList({ sources }: { sources: Source[] }) {
                 onClick={() => setTierFilter(tierFilter === tier ? null : tier)}
               >
                 <span className={`quality-dot tier-${tier}`} aria-hidden="true" />
-                {TIER_LABELS[tier]} ({tierCounts.get(tier)})
+                {t('sources.tierCount', { tier: tierLabel(t, tier), count: tierCounts.get(tier) ?? 0 })}
               </button>
             ))}
           </div>
         </div>
       )}
-      <ol className="sources-list" aria-label="Sources">
+      <ol className="sources-list" aria-label={t('sources.listLabel')}>
         {visible.map((source) => (
           <SourceRow key={source.index} source={source} />
         ))}
       </ol>
-      {visible.length === 0 && <p className="empty-note">No sources match this filter.</p>}
+      {visible.length === 0 && <p className="empty-note">{t('sources.noMatches')}</p>}
     </div>
   )
 }

@@ -1,9 +1,11 @@
 import { BarChartIcon, FileTextIcon, GlobeIcon } from '../icons'
 import { FloatingCard } from './FloatingCard'
 import { Leaf } from './Leaf'
+import { useI18n } from '../../i18n'
 
 /** Illuminated globe with network arcs, floating research cards and leaves. */
 export function ResearchHeroArt() {
+  const { t } = useI18n()
   return (
     <div className="research-art" aria-hidden="true">
       <div className="research-art-glow" />
@@ -126,19 +128,19 @@ export function ResearchHeroArt() {
 
       <FloatingCard
         icon={<GlobeIcon size={16} />}
-        title="Trusted Sources"
+        title={t('research.art.trustedSources')}
         tilt={-8}
         className="research-card-a"
       />
       <FloatingCard
         icon={<BarChartIcon size={16} />}
-        title="Detailed Analysis"
+        title={t('research.art.detailedAnalysis')}
         tilt={6}
         className="research-card-b"
       />
       <FloatingCard
         icon={<FileTextIcon size={16} />}
-        title="Structured Report"
+        title={t('research.art.structuredReport')}
         tilt={-5}
         className="research-card-c"
       />
