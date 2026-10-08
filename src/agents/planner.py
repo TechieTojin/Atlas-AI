@@ -85,6 +85,7 @@ class PlannerAgent:
         emitter: Any = None,
         max_tasks: int = 0,
         memory_context: str = "",
+        output_language: str = "en",
     ) -> None:
         self._planner = llm.with_structured_output(ResearchPlan)
         self._max_queries = max_queries
@@ -92,6 +93,10 @@ class PlannerAgent:
         # Findings previous runs in this project already established; the
         # planner targets the gaps instead of re-confirming them.
         self._memory_context = memory_context
+        # User-visible plan text in the run's language; queries stay retrieval-first.
+        from src.languages import plan_language_instruction
+
+        self._plan_language = plan_language_instruction(output_language)
         self._emitter = emitter or NullEmitter()
 
     def _size_hint(self) -> str:
@@ -113,7 +118,7 @@ class PlannerAgent:
             if self._memory_context:
                 user += PLANNER_MEMORY_NOTE.format(memory=self._memory_context)
         plan: ResearchPlan = self._planner.invoke(
-            [("system", PLANNER_SYSTEM), ("user", user + self._size_hint())]
+            [("system", PLANNER_SYSTEM + self._plan_language), ("user", user + self._size_hint())]
         )
         plan = normalize_plan(plan, self._max_queries)
         if self._max_tasks > 0:

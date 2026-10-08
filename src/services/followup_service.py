@@ -32,6 +32,7 @@ from src.models.workspace import FollowUp, FollowUpKind, FollowUpStatus
 from src.persistence.workspace import FollowUpsRepository
 from src.languages import language_instruction
 from src.prompts.research import FOLLOWUP_SYSTEM, FOLLOWUP_USER
+from src.scientific_text import plain_notation, scientific_text_issues
 from src.tools.search import dedupe_evidence, run_searches
 from src.tools.selection import select_evidence
 
@@ -220,6 +221,11 @@ class FollowUpService:
             body = strip_reasoning_artifacts(body)
             body = strip_generated_reference_sections(body)
             body = strip_invalid_citations(body, len(all_sources))
+            body = plain_notation(body)
+            issues = scientific_text_issues(body)
+            if issues:
+                # Never persist corrupted scientific notation as an answer.
+                raise ValueError("The model's answer was unusable: " + "; ".join(issues) + ".")
             cited = extract_valid_citations(body, len(all_sources))
 
             followup.answer = body.strip()

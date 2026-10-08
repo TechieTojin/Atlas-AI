@@ -17,6 +17,12 @@ import time
 from typing import Any
 
 from src.cancellation import awake_clock
+from src.scientific_text import (
+    PLAIN_NOTATION_RETRY_NOTE,
+    plain_notation,
+    repair_json_latex_escapes,
+    scientific_text_issues,
+)
 from src.graph.state import AtlasState
 from src.models.research import Evidence, Source
 from src.unicode_text import (
@@ -147,6 +153,9 @@ def strip_generated_reference_sections(markdown: str) -> str:
     return "\n".join(kept).rstrip()
 
 
+_TIMESTAMP_PSEUDO_CITATION_RE = re.compile(r"(?<=\])\[\d{1,2}:\d{2}(?::\d{2})?\]")
+
+
 def strip_invalid_citations(markdown: str, valid_max: int) -> str:
     """Canonicalise citation markers, then remove any that are not valid.
 
@@ -156,6 +165,9 @@ def strip_invalid_citations(markdown: str, valid_max: int) -> str:
     before, so English reports are unaffected.
     """
     markdown = normalize_citation_markers(markdown)
+    # A video-transcript timestamp copied next to a citation ("[4][17:05]",
+    # live Spanish run) reads as a citation but is not one.
+    markdown = _TIMESTAMP_PSEUDO_CITATION_RE.sub("", markdown)
     return _ANY_CITATION_RE.sub(
         lambda m: m.group(0)
         if is_canonical_citation(m.group(1)) and 1 <= int(m.group(1)) <= valid_max
@@ -339,10 +351,9 @@ class SynthesizerAgent:
         )
         from src.llm import is_llm_timeout
 
+        retry_note = ""
         for attempt in (1, 2):
-            prompt = user if attempt == 1 else user + EMPTY_DRAFT_RETRY_NOTE.format(
-                words=self._target_words
-            )
+            prompt = user + retry_note
             try:
                 body = self._invoke(system, prompt)
             except Exception as exc:
@@ -355,12 +366,24 @@ class SynthesizerAgent:
             if self._max_words:
                 body = trim_partial_sentence(body)
             body, cited = self._clean(body, len(sources))
-            if not is_empty_draft(body):
+            body = plain_notation(body)
+            issues = [] if is_empty_draft(body) else scientific_text_issues(body)
+            if not is_empty_draft(body) and not issues:
                 break
+            if issues:
+                # Corrupted or unrenderable scientific notation is never
+                # persisted: one corrective attempt, then the labeled fallback.
+                if attempt == 1 and self._retry_affordable():
+                    logger.warning("Synthesis draft rejected (%s); retrying once.", "; ".join(issues))
+                    retry_note = PLAIN_NOTATION_RETRY_NOTE
+                    continue
+                logger.warning("Synthesis draft rejected (%s); using extractive fallback.", "; ".join(issues))
+                return self._fallback_result(selected, sources, "model output had corrupted scientific notation")
             # Live failure: qwen3:4b in JSON mode returned {"report": ""}
             # (8 tokens). An empty draft is never accepted as a report.
             if attempt == 1 and self._retry_affordable():
                 logger.warning("Synthesis returned an empty draft; retrying once.")
+                retry_note = EMPTY_DRAFT_RETRY_NOTE.format(words=self._target_words)
                 continue
             logger.warning("Synthesis produced no usable report; using extractive fallback.")
             return self._fallback_result(selected, sources, "model returned an empty report")
@@ -410,7 +433,8 @@ class SynthesizerAgent:
                 repaired = ""  # treated exactly like a failed repair
             repair_ms = int((time.perf_counter() - repair_start) * 1000)
             repaired, repaired_cited = self._clean(repaired, len(sources))
-            if repaired_cited:
+            repaired = plain_notation(repaired)
+            if repaired_cited and not scientific_text_issues(repaired):
                 body, cited = repaired, repaired_cited
             else:
                 logger.warning(
@@ -461,6 +485,9 @@ def extract_report_text(content: str) -> str:
     text = content.strip()
     if not text.startswith("{"):
         return content
+    # A single-backslash LaTeX command would otherwise decode as a control
+    # character (	ext -> TAB + "ext"); see src.scientific_text.
+    text = repair_json_latex_escapes(text)
     try:
         data = json.loads(text)
         if isinstance(data, dict) and isinstance(data.get("report"), str):

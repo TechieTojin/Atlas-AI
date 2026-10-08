@@ -84,6 +84,9 @@ OUTPUT LANGUAGE: {name} ({code})
 - Keep these exactly as they appear in the sources, untranslated: source titles,
   URLs, numbers and percentages, units, chemical formulas, standard identifiers,
   model and product names, and other technical identifiers.
+- Write formulas, units and numbers as plain text, as the sources write them:
+  ordinary digits for subscripts and the ° sign for degrees. Never use LaTeX,
+  $...$ math or backslash commands.
 - Proper nouns may stay in their original form.
 - Do not add a References, Bibliography or Sources list in any language: the
   verified source list is appended by the system.
@@ -104,3 +107,21 @@ def language_instruction(code: str) -> str:
     if language.code == ENGLISH:
         return ""
     return _INSTRUCTION.format(name=language.english_name, code=language.code)
+
+
+_PLAN_INSTRUCTION = """
+
+PLAN LANGUAGE: {name} ({code})
+- Write the objective, every subquestion and every evidence_needed in {name}:
+  the user reads the plan in {name}.
+- Write search_queries in whatever language will find the most authoritative
+  sources, usually English. Never translate technical identifiers in them.
+  Retrieval quality matters more than matching the report language."""
+
+
+def plan_language_instruction(code: str) -> str:
+    """Planner instruction for the user-visible plan text ("" for English)."""
+    language = OUTPUT_LANGUAGES[parse_output_language(code)]
+    if language.code == ENGLISH:
+        return ""
+    return _PLAN_INSTRUCTION.format(name=language.english_name, code=language.code)

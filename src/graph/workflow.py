@@ -200,6 +200,7 @@ def build_workflow(
                     emitter=emitter,
                     max_tasks=config.planner_max_tasks,
                     memory_context=memory_context,
+                    output_language=output_language,
                 ),
                 emitter,
                 cancel_check,

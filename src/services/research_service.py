@@ -272,6 +272,11 @@ class ResearchService:
         overrides = self._languages.budget_overrides(run.output_language, run.mode.value)
         return dataclasses.replace(config, **overrides) if overrides else config
 
+    def _planning_config(self, config: AtlasConfig, run: ResearchRun) -> AtlasConfig:
+        """The planner writes the user-visible plan, so a non-English run plans
+        with the model that writes that language. English is unchanged."""
+        return config if run.output_language == "en" else self._writing_config(config, run)
+
     def _writing_config(self, config: AtlasConfig, run: ResearchRun) -> AtlasConfig:
         """Config for the stages that write prose (synthesis, citation repair).
 
@@ -374,7 +379,8 @@ class ResearchService:
             start = time.perf_counter()
             sink = LLMCallSink()
             llm = self._stage_llm(
-                config, "planner", config.ollama_structured_reasoning, sink, run_id
+                self._planning_config(config, run), "planner",
+                config.ollama_structured_reasoning, sink, run_id,
             )
             memory_context, memory_report = self._recall_project_memory(run)
             self._memory_reports[run_id] = memory_report
@@ -384,6 +390,7 @@ class ResearchService:
                 emitter=emitter,
                 max_tasks=config.planner_max_tasks,
                 memory_context=memory_context,
+                output_language=run.output_language,
             )
             result = planner({"question": run.query})
             planner_ms = int((time.perf_counter() - start) * 1000)
@@ -434,7 +441,9 @@ class ResearchService:
             # REPORT COMPLETION > optional critique > optional repair.
             budget = RunBudget(config, sink.snapshot, lambda: self._run_deadlines.get(run_id))
             self._budgets[run_id] = budget
-        llm = self._stage_llm(config, "planner", structured_reasoning, sink, run_id)
+        llm = self._stage_llm(
+            self._planning_config(config, run), "planner", structured_reasoning, sink, run_id
+        )
         critic_llm = self._stage_llm(
             config, "critic", structured_reasoning, sink, run_id,
             run_deadline=budget.critic_deadline if budget else None,
@@ -968,10 +977,14 @@ class ResearchService:
         run = self.get_run(run_id)
         if run.status is not RunStatus.COMPLETED or not run.final_report:
             raise InvalidRunStateError("Only completed runs can be exported.")
+        from src.export.labels import export_labels, localize_report_markers
+        from src.export.pdf import pdf_labels
+
+        labels = export_labels(run.output_language)
         header = (
-            f"# Atlas Research Report\n\n"
-            f"**Query:** {run.query}\n\n"
-            f"**Mode:** {run.mode.value} · **Completed:** "
+            f"# {labels['md_title']}\n\n"
+            f"**{labels['query']}:** {run.query}\n\n"
+            f"**{pdf_labels(run.output_language)['mode']}:** {run.mode.value} · **{labels['completed']}:** "
             f"{run.completed_at.isoformat() if run.completed_at else ''}\n\n---\n\n"
         )
-        return header + run.final_report
+        return header + localize_report_markers(run.final_report, run.output_language)

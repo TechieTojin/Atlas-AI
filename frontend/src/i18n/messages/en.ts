@@ -163,9 +163,17 @@ export const en = {
   outputLanguage: {
     label: 'Research output: {language} · {model}',
     currentModel: 'current model',
-    fallback:
-      '{preferred} research output isn’t available with the current model yet, so reports will be written in {language}.',
-    unavailable: 'Output languages could not be checked, so reports will be written in {language}.',
+    unsupported:
+      'Research generation is not currently available in {preferred} with the configured model. You can continue this research in English.',
+    continueInEnglish: 'Continue in English',
+    continuingInEnglish:
+      'This research will be written in English. Your language preference is unchanged.',
+    limited:
+      '{language} research uses a slower local model: a fast run takes about 8 minutes.',
+    comparisonInEnglish:
+      'Comparisons are not yet validated in {preferred}, so this comparison will be written in English.',
+    unavailable:
+      'Output languages could not be checked. You can continue this research in English.',
   },
   research: {
     eyebrow: 'AI-Powered Research',

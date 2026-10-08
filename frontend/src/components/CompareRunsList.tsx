@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, errorMessage } from '../api/client'
-import { agoLabel, useI18n, useOutputLanguage } from '../i18n'
+import { agoLabel, languageName, useI18n, useOutputLanguage } from '../i18n'
 import type { RunSummary } from '../types'
 import { ModeBadge, StatusDot, TemplateBadge } from './StatusBadge'
 
@@ -21,7 +21,7 @@ export function CompareRunsList({
   emptyNote?: string
 }) {
   const navigate = useNavigate()
-  const { t, format } = useI18n()
+  const { t, format, language: ui } = useI18n()
   const output = useOutputLanguage('comparison')
   const [selected, setSelected] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
@@ -73,6 +73,11 @@ export function CompareRunsList({
               : t('compareRuns.compare')}
         </button>
       </div>
+      {output.fellBack && !output.loading && (
+        <p className="hint-text compare-language-note" role="note">
+          {t('outputLanguage.comparisonInEnglish', { preferred: languageName(output.preferred, ui.locale) })}
+        </p>
+      )}
       {error && (
         <p className="form-error" role="alert">
           {error}

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
 import type { LanguageCapabilities } from '../api/client'
+import { CompareRunsList } from '../components/CompareRunsList'
 import { FollowUpPanel } from '../components/FollowUpPanel'
 import { ComparisonPage } from '../pages/ComparisonPage'
 import { ResearchPage } from '../pages/ResearchPage'
@@ -10,7 +11,7 @@ import { makeComparison, makeFollowUp, makeRun, makeRunSummary, makeSource, TEMP
 import { MockEventSource } from '../test/mockEventSource'
 import { installFetchMock, requestBody } from '../test/mockFetch'
 import { renderWithLocale } from '../test/renderWithLocale'
-import { languageName } from './languages'
+import { getLanguage, languageName } from './languages'
 import { loadMessages } from './loadMessages'
 import { resetLanguageCapabilities, resolveOutputLanguage } from './outputLanguage'
 import { makePreference, PREFERENCE_STORAGE_KEY, writePreference } from './preference'
@@ -90,35 +91,51 @@ describe('resolveOutputLanguage', () => {
 })
 
 describe('effective research output language', () => {
-  it('Malayalam UI with Malayalam preference falls back to English and says so', async () => {
-    const mock = researchBackend(capabilities(['en']))
-    writePreference(makePreference('ml'))
-    const { t } = await renderWithLocale(<ResearchPage />, { language: 'ml' })
+  const startButton = (t: (key: never) => string) =>
+    screen.getByRole('button', { name: new RegExp(t('queryForm.start' as never)) })
 
-    expect(
-      await screen.findByText(t('outputLanguage.label', { language: languageName('en', 'ml'), model: 'qwen3:4b' })),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText(t('outputLanguage.fallback', { preferred: languageName('ml', 'ml'), language: languageName('en', 'ml') })),
-    ).toBeInTheDocument()
-    await submitResearch(t as never)
-    await waitFor(() => expect(postedLanguage(mock)).toBe('en'))
-    // The stored preference is never rewritten by the fallback.
-    expect(JSON.parse(window.localStorage.getItem(PREFERENCE_STORAGE_KEY) ?? '{}').defaultOutputLanguage).toBe('ml')
+  it.each(['ml', 'fr'])(
+    'unsupported %s: says so before research, creates nothing until English is chosen',
+    async (code) => {
+      const mock = researchBackend(capabilities(['en', 'es', 'hi', 'de']))
+      writePreference(makePreference(code))
+      const { t } = await renderWithLocale(<ResearchPage />, { language: code })
+
+      expect(
+        await screen.findByText(t('outputLanguage.unsupported', { preferred: languageName(code, code) })),
+      ).toBeInTheDocument()
+      await userEvent.type(screen.getByLabelText(t('queryForm.questionLabel')), 'solar growth')
+      expect(startButton(t as never)).toBeDisabled()
+      await userEvent.click(startButton(t as never))
+      expect(mock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
+
+      // Only an explicit choice writes this research in English.
+      await userEvent.click(screen.getByRole('button', { name: t('outputLanguage.continueInEnglish') }))
+      expect(screen.getByText(t('outputLanguage.continuingInEnglish'))).toBeInTheDocument()
+      await userEvent.click(startButton(t as never))
+      await waitFor(() => expect(postedLanguage(mock)).toBe('en'))
+      // The stored preference is never rewritten.
+      expect(JSON.parse(window.localStorage.getItem(PREFERENCE_STORAGE_KEY) ?? '{}').defaultOutputLanguage).toBe(code)
+      expect(JSON.parse(window.localStorage.getItem(PREFERENCE_STORAGE_KEY) ?? '{}').uiLanguage).toBe(code)
+    },
+  )
+
+  it('choosing a language in the header switches the UI and the next research language', async () => {
+    const mock = researchBackend(capabilities(['en', 'es', 'hi', 'de']))
+    writePreference(makePreference('en'))
+    await renderWithLocale(<App />, { language: 'en', route: '/' })
+    await userEvent.click(await screen.findByRole('button', { name: /Language: English/ }))
+    await userEvent.click(screen.getByRole('menuitemradio', { name: /Deutsch/ }))
+    await waitFor(() => expect(document.documentElement.lang).toBe('de'))
+    const stored = JSON.parse(window.localStorage.getItem(PREFERENCE_STORAGE_KEY) ?? '{}')
+    expect(stored).toMatchObject({ uiLanguage: 'de', defaultOutputLanguage: 'de' })
+    await waitFor(() => expect(document.querySelector('.start-btn')).not.toBeNull())
+    await userEvent.type(document.querySelector('.query-input') as HTMLElement, 'Solarwachstum')
+    await userEvent.click(document.querySelector('.start-btn') as HTMLElement)
+    await waitFor(() => expect(postedLanguage(mock)).toBe('de'))
   })
 
-  it('Hindi UI with an unsupported Hindi preference also writes English', async () => {
-    const mock = researchBackend(capabilities(['en']))
-    writePreference(makePreference('hi'))
-    const { t } = await renderWithLocale(<ResearchPage />, { language: 'hi' })
-    expect(
-      await screen.findByText(t('outputLanguage.fallback', { preferred: languageName('hi', 'hi'), language: languageName('en', 'hi') })),
-    ).toBeInTheDocument()
-    await submitResearch(t as never)
-    await waitFor(() => expect(postedLanguage(mock)).toBe('en'))
-  })
-
-  it('a supported non-English preference is used directly, with no fallback note', async () => {
+  it('a supported non-English preference is used directly, with no note', async () => {
     const mock = researchBackend(capabilities(['en', 'es']))
     writePreference(makePreference('es'))
     const { t } = await renderWithLocale(<ResearchPage />, { language: 'es' })
@@ -130,34 +147,45 @@ describe('effective research output language', () => {
     await waitFor(() => expect(postedLanguage(mock)).toBe('es'))
   })
 
-  it('a failed capability request never enables an unsupported language', async () => {
-    const mock = researchBackend(undefined)
-    writePreference(makePreference('fr'))
-    const { t } = await renderWithLocale(<ResearchPage />, { language: 'fr' })
+  it.each(['hi', 'de'])('a LIMITED %s route writes that language and says it is slower', async (code) => {
+    const caps = capabilities(['en', 'es', 'hi', 'de'])
+    for (const entry of caps.languages) {
+      if (entry.code === 'hi' || entry.code === 'de') Object.assign(entry, { status: 'limited', model: 'gemma4:e4b' })
+    }
+    const mock = researchBackend(caps)
+    writePreference(makePreference(code))
+    const { t } = await renderWithLocale(<ResearchPage />, { language: code })
     expect(
-      await screen.findByText(t('outputLanguage.unavailable', { language: languageName('en', 'fr') })),
+      await screen.findByText(t('outputLanguage.limited', { language: languageName(code, code) })),
     ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: t('outputLanguage.continueInEnglish') })).toBeNull()
     await submitResearch(t as never)
-    await waitFor(() => expect(postedLanguage(mock)).toBe('en'))
+    await waitFor(() => expect(postedLanguage(mock)).toBe(code))
   })
 
-  it('a malformed capability payload is treated as unavailable', async () => {
-    const mock = researchBackend('malformed')
+  it.each([
+    ['a failed capability request', undefined],
+    ['a malformed capability payload', 'malformed' as const],
+  ])('%s never enables an unsupported language, nor silently writes English', async (_label, caps) => {
+    const mock = researchBackend(caps)
     writePreference(makePreference('de'))
     const { t } = await renderWithLocale(<ResearchPage />, { language: 'de' })
-    expect(
-      await screen.findByText(t('outputLanguage.unavailable', { language: languageName('en', 'de') })),
-    ).toBeInTheDocument()
-    await submitResearch(t as never)
+    expect(await screen.findByText(t('outputLanguage.unavailable'))).toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText(t('queryForm.questionLabel')), 'solar growth')
+    expect(startButton(t as never)).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: t('outputLanguage.continueInEnglish') }))
+    await userEvent.click(startButton(t as never))
     await waitFor(() => expect(postedLanguage(mock)).toBe('en'))
   })
 
   it('an English user sees no warning even when capabilities are unavailable', async () => {
-    researchBackend(undefined)
+    const mock = researchBackend(undefined)
     writePreference(makePreference('en'))
-    await renderWithLocale(<ResearchPage />, { language: 'en' })
+    const { t } = await renderWithLocale(<ResearchPage />, { language: 'en' })
     expect(await screen.findByText('Research output: English · current model')).toBeInTheDocument()
     expect(screen.queryByRole('note')).not.toBeInTheDocument()
+    await submitResearch(t as never)
+    await waitFor(() => expect(postedLanguage(mock)).toBe('en'))
   })
 })
 
@@ -188,6 +216,27 @@ describe('artifact lang attributes', () => {
     await userEvent.click(screen.getByRole('menuitemradio', { name: /Deutsch/ }))
     await waitFor(() => expect(document.documentElement.lang).toBe('de'))
     expect(article()).toHaveAttribute('lang', 'en')
+    expect(mock.mock.calls.filter(([, init]) => (init?.method ?? 'GET') !== 'GET')).toEqual([])
+  })
+
+  it.each([
+    ['hi', 'en', '## निष्कर्ष\n\nनमी MAPbI3 को PbI2 में बदलती है [1]।', /नमी MAPbI3/],
+    ['es', 'ml', '## Conclusión\n\nLa humedad degrada MAPbI3 [1].', /La humedad degrada/],
+    ['en', 'de', '## Conclusion\n\nMoisture degrades MAPbI3 [1].', /Moisture degrades/],
+  ])('a stored %s report in a %s UI keeps its own language', async (artifact, ui, report, body) => {
+    const run = makeRun({ sources: [makeSource()], output_language: artifact, final_report: report })
+    const mock = reportBackend(run)
+    const { container, t } = await renderWithLocale(<App />, { language: ui, route: `/runs/${run.id}` })
+    await screen.findByText(body)
+    const article = () => container.querySelector('article.report-sections')
+    // Static controls follow the UI; the artifact body follows its own language.
+    expect(document.documentElement.lang).toBe(getLanguage(ui).locale)
+    expect(screen.getAllByText(t('nav.research')).length).toBeGreaterThan(0)
+    expect(article()).toHaveAttribute('lang', getLanguage(artifact).locale)
+    expect(article()?.textContent).toContain(report.split('\n\n')[1].slice(0, 12))
+    // Source evidence keeps the source's own text (the fixture source is English).
+    await userEvent.click(screen.getByRole('tab', { name: new RegExp(t('runTabs.sources')) }))
+    expect(await screen.findByText(new RegExp(makeSource().title))).toBeInTheDocument()
     expect(mock.mock.calls.filter(([, init]) => (init?.method ?? 'GET') !== 'GET')).toEqual([])
   })
 
@@ -231,6 +280,27 @@ describe('artifact lang attributes', () => {
     await userEvent.click(screen.getByRole('button', { name: t('followUp.suggestions.simpler') }))
     expect(screen.getByLabelText(t('followUp.questionLabel'))).toHaveValue('Explain this more simply')
     expect(within(container).queryByText('Explain this more simply', { selector: 'button' })).toBeNull()
+  })
+})
+
+describe('gated comparisons', () => {
+  it('a Hindi user is told before comparing that the comparison will be English', async () => {
+    const caps = capabilities(['en', 'es', 'hi', 'de'])
+    const hindi = caps.languages.find((language) => language.code === 'hi')!
+    hindi.features = {
+      report: { supported: true, reason: '' },
+      followup: { supported: true, reason: '' },
+      comparison: { supported: false, reason: 'Not validated.' },
+    }
+    installFetchMock((url) => (url === '/api/capabilities/languages' ? { body: caps } : undefined))
+    writePreference(makePreference('hi'))
+    const { t } = await renderWithLocale(
+      <CompareRunsList runs={[makeRunSummary({ id: 'a' }), makeRunSummary({ id: 'b' })]} />,
+      { language: 'hi' },
+    )
+    expect(
+      await screen.findByText(t('outputLanguage.comparisonInEnglish', { preferred: languageName('hi', 'hi') })),
+    ).toBeInTheDocument()
   })
 })
 

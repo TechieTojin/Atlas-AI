@@ -3,7 +3,7 @@ import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
 import { api, errorMessage } from '../api/client'
 import { useRuns } from '../hooks/useRuns'
 import type { Theme } from '../hooks/useTheme'
-import { agoLabel, templateName, useI18n, useOutputLanguage } from '../i18n'
+import { agoLabel, languageName, templateName, useI18n, useOutputLanguage } from '../i18n'
 import type { RunSummary } from '../types'
 import { MAX_COMPARE, MIN_COMPARE } from './CompareRunsList'
 import {
@@ -54,7 +54,7 @@ function HistoryRowBody({ run }: { run: RunSummary }) {
 /** Global left sidebar: brand, primary navigation, research history, plan card, theme. */
 export function Sidebar({ open, onClose, theme, onToggleTheme }: SidebarProps) {
   const { runs, loading, error } = useRuns()
-  const { t } = useI18n()
+  const { t, language: ui } = useI18n()
   const output = useOutputLanguage('comparison')
   const navigate = useNavigate()
   const location = useLocation()
@@ -145,6 +145,11 @@ export function Sidebar({ open, onClose, theme, onToggleTheme }: SidebarProps) {
               >
                 {compareBusy ? t('sidebar.comparing') : t('sidebar.compareRuns', { count: selected.length })}
               </button>
+              {output.fellBack && !output.loading && (
+                <p className="sidebar-note" role="note">
+                  {t('outputLanguage.comparisonInEnglish', { preferred: languageName(output.preferred, ui.locale) })}
+                </p>
+              )}
               {compareError && <p className="form-error">{compareError}</p>}
             </div>
           )}

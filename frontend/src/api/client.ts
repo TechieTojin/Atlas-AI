@@ -88,11 +88,12 @@ export interface LanguageCapability {
   english_name: string
   native_name: string
   model: string
-  status: 'supported' | 'unsupported' | 'unvalidated'
+  /** ``limited``: generated acceptably, with a stated limitation (slower runs). */
+  status: 'supported' | 'limited' | 'unsupported' | 'unvalidated'
   supported: boolean
   reason: string
   /** Per-artifact verdicts; a language can pass for reports but not comparisons. */
-  features?: Partial<Record<OutputFeature, { supported: boolean; reason: string }>>
+  features?: Partial<Record<OutputFeature, { status?: string; supported: boolean; reason: string }>>
 }
 
 export type OutputFeature = 'report' | 'followup' | 'comparison'

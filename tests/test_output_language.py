@@ -27,7 +27,7 @@ from src.languages import (
 )
 from src.model_capabilities import LanguageRouter, UnsupportedOutputLanguageError
 from src.models.research import CriticDecision
-from src.models.runs import ResearchRun, RunStatus
+from src.models.runs import ResearchRun, RunMode, RunStatus
 from src.persistence.db import Database
 from src.persistence.runs import RunsRepository
 from src.prompts.research import FOLLOWUP_SYSTEM, SYNTHESIZER_SYSTEM
@@ -105,11 +105,23 @@ def test_language_instruction_contract(code, name):
 
 
 def test_router_reflects_the_benchmark_verdicts_and_is_pure_config():
-    """qwen3:4b: English and Spanish passed the local benchmark; the rest did not."""
+    """Production routing: en/es on qwen3:4b; hi/de on gemma4:e4b (LIMITED: slow);
+    French and Malayalam failed every benchmarked model."""
     router = LanguageRouter(AtlasConfig(model="qwen3:4b"))
     supported = {code for code in OUTPUT_LANGUAGE_CODES if router.is_supported(code)}
-    assert supported == {"en", "es"}
-    for code in ("ml", "hi", "fr", "de"):
+    assert supported == {"en", "es", "hi", "de"}
+    assert {code: router.model_for(code) for code in OUTPUT_LANGUAGE_CODES} == {
+        "en": "qwen3:4b", "es": "qwen3:4b", "ml": "qwen3:4b", "fr": "qwen3:4b",
+        "hi": "gemma4:e4b", "de": "gemma4:e4b",
+    }
+    assert router.capability("es").status == model_capabilities.SUPPORTED
+    for code in ("hi", "de"):
+        assert router.capability(code).status == model_capabilities.LIMITED
+        assert router.capability(code).reason.startswith("Slower")
+        # Reports passed; comparisons were never validated and stay gated.
+        assert router.is_supported(code, "followup")
+        assert not router.is_supported(code, "comparison")
+    for code in ("ml", "fr"):
         assert router.capability(code).status == model_capabilities.UNSUPPORTED
         assert router.capability(code).reason.startswith("Benchmark failed")
     with pytest.raises(UnsupportedOutputLanguageError, match="Malayalam"):
@@ -119,6 +131,9 @@ def test_router_reflects_the_benchmark_verdicts_and_is_pure_config():
     # Spanish gets its own FAST word ceiling so a report fits the same token cap.
     assert router.budget_overrides("es", "FAST") == {"report_target_words": 330, "synthesis_max_words": 380}
     assert router.budget_overrides("es", "DEEP") == {}
+    # The slow route gets its own measured budget; English FAST stays at 540 s.
+    assert router.budget_overrides("hi", "FAST")["run_budget_seconds"] == 1200
+    assert "run_budget_seconds" not in router.budget_overrides("en", "FAST")
 
 
 def test_english_is_never_gated_even_for_unknown_models():
@@ -139,10 +154,12 @@ def test_routing_sends_a_language_to_its_configured_model(monkeypatch):
 
 
 def test_validated_table_marks_known_failures_unsupported():
-    """The real verdicts: Malayalam and Hindi on qwen3:4b must stay unsupported."""
-    router = LanguageRouter(AtlasConfig(model="qwen3:4b"))
+    """The real verdicts: Malayalam and Hindi on qwen3:4b must stay unsupported,
+    so Hindi is only available through its validated route."""
+    router = LanguageRouter(AtlasConfig(model="qwen3:4b", language_models=(("hi", "qwen3:4b"),)))
     assert not router.is_supported("ml")
     assert not router.is_supported("hi")
+    assert not router.is_supported("fr")
 
 
 def test_capability_endpoint(tmp_path):
@@ -152,7 +169,10 @@ def test_capability_endpoint(tmp_path):
     assert [row["code"] for row in body["languages"]] == list(OUTPUT_LANGUAGE_CODES)
     english = body["languages"][0]
     assert english["supported"] is True and english["native_name"] == "English"
-    assert {row["code"] for row in body["languages"] if row["supported"]} == {"en", "es"}
+    assert {row["code"] for row in body["languages"] if row["supported"]} == {"en", "es", "hi", "de"}
+    hindi = next(row for row in body["languages"] if row["code"] == "hi")
+    assert hindi["status"] == "limited" and hindi["model"] == "gemma4:e4b"
+    assert hindi["features"]["comparison"]["supported"] is False
     malayalam = next(row for row in body["languages"] if row["code"] == "ml")
     assert malayalam["supported"] is False and malayalam["reason"]
 
@@ -198,7 +218,7 @@ def test_unknown_language_is_a_clean_validation_error(tmp_path, language):
     assert container.runs_repo.list()[1] == 0
 
 
-@pytest.mark.parametrize("language", ["ml", "hi", "fr", "de"])
+@pytest.mark.parametrize("language", ["ml", "fr"])
 def test_unsupported_language_is_rejected_not_downgraded(tmp_path, language):
     container, client = _client(tmp_path)
     with client:
@@ -243,7 +263,38 @@ def test_supported_language_routes_the_writing_model(tmp_path, monkeypatch):
     assert container.research_service.get_run(run.id).output_language == "es"
     models = dict(seen)
     assert models.get("synthesis") == "multi"
-    assert models.get("planner") == container.config.model
+    # The planner writes the user-visible plan, so it follows the language too;
+    # the critic and search stay on the configured model.
+    assert models.get("planner") == "multi"
+    assert models.get("critic", container.config.model) == container.config.model
+    seen.clear()
+    container.research_service.create_run("q")  # English
+    assert {model for _stage, model in seen} == {container.config.model}
+
+
+@pytest.mark.parametrize("language", ["hi", "de"])
+def test_production_route_for_hindi_and_german(tmp_path, language):
+    """No env configuration: hi/de plan and write with gemma4:e4b under their own
+    measured FAST budget; Spanish and English stay on the default model."""
+    seen: list[tuple[str, str, int]] = []
+    llm = FakeLLM(plans=[make_plan(n_queries=2)], critiques=[make_critique(CriticDecision.SYNTHESIZE, score=9)],
+                  synthesis="Body [1] [2].")
+
+    def factory(cfg, reasoning, stage="default", call_sink=None):
+        seen.append((stage, cfg.model, cfg.run_budget_seconds))
+        return llm
+
+    container = make_container(tmp_path, llm=llm)
+    container.research_service._llm_factory = factory
+    run = container.research_service.create_run("q", mode=RunMode.FAST, output_language=language)
+    assert container.research_service.get_run(run.id).output_language == language
+    stages = {stage: (model, budget) for stage, model, budget in seen}
+    assert stages["synthesis"] == ("gemma4:e4b", 1200)
+    assert stages["planner"][0] == "gemma4:e4b"
+    for other in ("es", "en"):
+        seen.clear()
+        container.research_service.create_run("q", mode=RunMode.FAST, output_language=other)
+        assert {(model, budget) for _s, model, budget in seen} == {(container.config.model, 540)}
 
 
 def test_persistence_round_trip_and_summary(tmp_path):
@@ -581,3 +632,20 @@ def test_english_comparison_prompt_is_byte_identical(tmp_path):
     c.comparison_service.create([r1.id, r2.id])
     calls = llm.with_structured_output(ComparisonSynthesis).calls
     assert calls and calls[0][0] == ("system", COMPARISON_SYSTEM)
+
+
+def test_plan_language_instruction_keeps_queries_retrieval_first(tmp_path, spanish_supported):
+    from src.languages import plan_language_instruction
+    from src.prompts.research import PLANNER_SYSTEM
+
+    assert plan_language_instruction("en") == ""
+    text = plan_language_instruction("ml")
+    assert "PLAN LANGUAGE: Malayalam (ml)" in text and "search_queries" in text and "usually English" in text
+    llm = FakeLLM(plans=[make_plan(n_queries=2)], critiques=[make_critique(CriticDecision.SYNTHESIZE, score=9)],
+                  synthesis="Hallazgos [1].")
+    container = make_container(tmp_path, llm=llm)
+    container.research_service.create_run("q", output_language="es")
+    planner_calls = llm._structured[__import__("src.models.research", fromlist=["ResearchPlan"]).ResearchPlan].calls
+    assert planner_calls[-1][0] == ("system", PLANNER_SYSTEM + plan_language_instruction("es"))
+    container.research_service.create_run("q")
+    assert planner_calls[-1][0] == ("system", PLANNER_SYSTEM)  # English byte-identical

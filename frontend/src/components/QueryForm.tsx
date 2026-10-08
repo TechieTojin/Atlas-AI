@@ -48,6 +48,9 @@ export function QueryForm({ projectId }: { projectId?: string }) {
   const [customTemplate, setCustomTemplate] = useState('')
   const [useMemory, setUseMemory] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  // Explicit, per-research consent to write in English when the preferred
+  // language cannot be generated. Never stored; the preference is unchanged.
+  const [englishChosenFor, setEnglishChosenFor] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const queryId = useId()
   const templateId = useId()
@@ -61,7 +64,13 @@ export function QueryForm({ projectId }: { projectId?: string }) {
   const customTemplateValid =
     !isCustomTemplate ||
     (customTemplate.trim().length > 0 && customTemplate.length <= CUSTOM_TEMPLATE_MAX_LENGTH)
+  const needsLanguageChoice = output.fellBack && !output.loading
+  const englishChosen = englishChosenFor === output.preferred
+  // English never waits for capabilities: every model writes it.
+  const languageReady =
+    output.preferred === 'en' || (!output.loading && (!needsLanguageChoice || englishChosen))
   const canSubmit =
+    languageReady &&
     query.trim().length > 0 &&
     !submitting &&
     !(docsRequired && selectedDocs.length === 0) &&
@@ -356,15 +365,31 @@ export function QueryForm({ projectId }: { projectId?: string }) {
               })}
             </span>
           </p>
-          {output.fellBack && (
-            <p className="output-language-fallback" role="note">
-              {output.unavailable
-                ? t('outputLanguage.unavailable', { language: nameOf(output.effective) })
-                : t('outputLanguage.fallback', {
-                    preferred: nameOf(output.preferred),
-                    language: nameOf(output.effective),
-                  })}
+          {output.limited && !output.fellBack && (
+            <p className="output-language-hint" role="note">
+              {t('outputLanguage.limited', { language: nameOf(output.effective) })}
             </p>
+          )}
+          {needsLanguageChoice && (
+            <div className="output-language-fallback" role="note">
+              <p>
+                {output.unavailable
+                  ? t('outputLanguage.unavailable')
+                  : t('outputLanguage.unsupported', { preferred: nameOf(output.preferred) })}
+              </p>
+              {englishChosen ? (
+                <p className="output-language-chosen">{t('outputLanguage.continuingInEnglish')}</p>
+              ) : (
+                <button
+                  type="button"
+                  className="btn light compact"
+                  onClick={() => setEnglishChosenFor(output.preferred)}
+                  disabled={submitting}
+                >
+                  {t('outputLanguage.continueInEnglish')}
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>

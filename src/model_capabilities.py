@@ -28,6 +28,17 @@ FEATURES = ("report", "followup", "comparison")
 SUPPORTED = "supported"
 UNSUPPORTED = "unsupported"
 UNVALIDATED = "unvalidated"
+#: Generates acceptably but with a stated limitation (e.g. much slower runs).
+LIMITED = "limited"
+
+#: The validated production route per language: the one place model names are
+#: chosen for a language. A language absent here uses the configured default
+#: model (``ATLAS_MODEL``, qwen3:4b), which is how English and Spanish run.
+#: ``ATLAS_LANGUAGE_MODELS`` may override an entry for experiments.
+DEFAULT_LANGUAGE_ROUTES: dict[str, str] = {
+    "hi": "gemma4:e4b",
+    "de": "gemma4:e4b",
+}
 
 
 @dataclass(frozen=True)
@@ -40,7 +51,7 @@ class LanguageCapability:
 
     @property
     def supported(self) -> bool:
-        return self.status == SUPPORTED
+        return self.status in (SUPPORTED, LIMITED)
 
 
 class UnsupportedOutputLanguageError(ValueError):
@@ -86,6 +97,36 @@ _VALIDATED: dict[tuple[str, str], tuple[str, str]] = {
         "Benchmark failed: 105 words took 470 s (5.6 tokens per word), far beyond the "
         "FAST budget, and every number in the evidence was dropped.",
     ),
+    # Phase 7, gemma4:e4b (Q4_K_M). A route only, never the default model.
+    ("gemma4:e4b", "ml"): (
+        UNSUPPORTED,
+        "Benchmark failed: words mixed Malayalam with Devanagari and Bengali letters, "
+        "invented terminology and English leakage.",
+    ),
+    ("gemma4:e4b", "fr"): (
+        UNSUPPORTED,
+        "Benchmark failed on accuracy: it moved the irreversible PbI2 decomposition from "
+        "~100 hours to 'within hours', and used wrong terms ('lacunes iodurelles', "
+        "'électrode de transport de trous').",
+    ),
+    ("gemma4:e4b", "hi"): (
+        LIMITED,
+        "Slower: benchmark passed (grounded, correctly cited Hindi with formulas and numbers "
+        "intact) and verified end to end, but the local model writes ~3.5 tokens/s, so a "
+        "FAST run takes about 8 minutes.",
+    ),
+    # Validated, but not routed: qwen3:4b already writes Spanish, faster.
+    ("gemma4:e4b", "es"): (
+        LIMITED,
+        "Benchmark passed: grounded, correctly cited Spanish with formulas and numbers intact; "
+        "verified end to end. Slower than the validated qwen3:4b route (~9 minutes per FAST run).",
+    ),
+    ("gemma4:e4b", "de"): (
+        LIMITED,
+        "Slower: benchmark passed (grounded, correctly cited German; the targeted "
+        "thermal-stability check kept the substitution direction and every number) and "
+        "verified end to end, but a FAST run takes about 8 minutes.",
+    ),
 }
 
 #: Per-(model, language, mode) config overrides for validated languages whose
@@ -100,6 +141,13 @@ _FEATURE_VERDICTS: dict[tuple[str, str, str], tuple[str, str]] = {
         "the English control failed the same checks on the same run pairs, so a "
         "Spanish comparison cannot yet be shown to be reliable.",
     ),
+    **{
+        ("gemma4:e4b", code, "comparison"): (
+            UNSUPPORTED,
+            "Not validated: no comparison has been verified with this model in this language.",
+        )
+        for code in ("hi", "es", "de")
+    },
 }
 
 _BUDGETS: dict[tuple[str, str, str], dict[str, int]] = {
@@ -107,6 +155,23 @@ _BUDGETS: dict[tuple[str, str, str], dict[str, int]] = {
     # English FAST ceiling (600 words) would always hit the 900-token cap and
     # lose the conclusion. This keeps a complete report inside the same cap.
     ("qwen3:4b", "es", "FAST"): {"report_target_words": 330, "synthesis_max_words": 380},
+    # gemma4:e4b writes ~3.4 tokens/s on this CPU (qwen3:4b ~4.6 in English) and plans
+    # with the same model, so the English 540 s FAST promise cannot hold. The longer
+    # budget is reported as a LIMITED (speed) verdict, never hidden. Word ceilings
+    # keep a complete report under the 900-token cap at each language's
+    # measured tokens-per-word (hi 1.9, es 1.85, de 2.6).
+    ("gemma4:e4b", "hi", "FAST"): {
+        "report_target_words": 330, "synthesis_max_words": 380,
+        "run_budget_seconds": 1200, "planner_timeout_seconds": 300,
+    },
+    ("gemma4:e4b", "es", "FAST"): {
+        "report_target_words": 330, "synthesis_max_words": 380,
+        "run_budget_seconds": 1200, "planner_timeout_seconds": 300,
+    },
+    ("gemma4:e4b", "de", "FAST"): {
+        "report_target_words": 260, "synthesis_max_words": 300,
+        "run_budget_seconds": 1200, "planner_timeout_seconds": 300,
+    },
 }
 
 
@@ -124,7 +189,7 @@ class LanguageRouter:
 
     def __init__(self, config: AtlasConfig) -> None:
         self._default_model = config.model
-        self._routes = dict(config.language_models)
+        self._routes = {**DEFAULT_LANGUAGE_ROUTES, **dict(config.language_models)}
 
     def model_for(self, language: str) -> str:
         language = parse_output_language(language)
@@ -136,7 +201,7 @@ class LanguageRouter:
             raise ValueError(f"Unknown artifact feature {feature!r}.")
         model = self.model_for(language)
         status, reason = _verdict(model, language)
-        if status == SUPPORTED and language != ENGLISH:
+        if status in (SUPPORTED, LIMITED) and language != ENGLISH:
             status, reason = _FEATURE_VERDICTS.get((model, language, feature), (status, reason))
         return LanguageCapability(language=language, model=model, status=status, reason=reason, feature=feature)
 
@@ -178,6 +243,7 @@ class LanguageRouter:
                     "reason": cap.reason,
                     "features": {
                         feature: {
+                            "status": self.capability(cap.language, feature).status,
                             "supported": self.capability(cap.language, feature).supported,
                             "reason": self.capability(cap.language, feature).reason,
                         }

@@ -158,8 +158,17 @@ const messages: PartialMessages = {
   outputLanguage: {
     label: 'Recherche-Ausgabe: {language} · {model}',
     currentModel: 'aktuelles Modell',
-    fallback: 'Recherche-Ausgabe auf {preferred} ist mit dem aktuellen Modell noch nicht verfügbar; Berichte werden daher auf {language} verfasst.',
-    unavailable: 'Die Ausgabesprachen konnten nicht geprüft werden; Berichte werden daher auf {language} verfasst.',
+    unsupported:
+      'Recherchen auf {preferred} können mit dem konfigurierten Modell derzeit nicht erstellt werden. Sie können diese Recherche auf Englisch fortsetzen.',
+    continueInEnglish: 'Auf Englisch fortfahren',
+    continuingInEnglish:
+      'Diese Recherche wird auf Englisch verfasst. Ihre Spracheinstellung bleibt unverändert.',
+    limited:
+      'Recherchen auf {language} nutzen ein langsameres lokales Modell: Ein schneller Lauf dauert etwa 8 Minuten.',
+    comparisonInEnglish:
+      'Vergleiche sind auf {preferred} noch nicht validiert, daher wird dieser Vergleich auf Englisch verfasst.',
+    unavailable:
+      'Die Ausgabesprachen konnten nicht geprüft werden. Sie können diese Recherche auf Englisch fortsetzen.',
   },
   research: {
     eyebrow: 'KI-gestützte Recherche',

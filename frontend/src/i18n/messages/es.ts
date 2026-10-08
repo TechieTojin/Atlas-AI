@@ -158,8 +158,17 @@ const messages: PartialMessages = {
   outputLanguage: {
     label: 'Resultado de la investigación: {language} · {model}',
     currentModel: 'modelo actual',
-    fallback: 'La investigación en {preferred} aún no está disponible con el modelo actual, así que los informes se redactarán en {language}.',
-    unavailable: 'No se pudieron comprobar los idiomas de salida, así que los informes se redactarán en {language}.',
+    unsupported:
+      'La generación de investigaciones en {preferred} no está disponible actualmente con el modelo configurado. Puedes continuar esta investigación en inglés.',
+    continueInEnglish: 'Continuar en inglés',
+    continuingInEnglish:
+      'Esta investigación se redactará en inglés. Tu preferencia de idioma no cambia.',
+    limited:
+      'La investigación en {language} usa un modelo local más lento: una ejecución rápida tarda unos 8 minutos.',
+    comparisonInEnglish:
+      'Las comparaciones aún no están validadas en {preferred}, así que esta comparación se redactará en inglés.',
+    unavailable:
+      'No se pudieron comprobar los idiomas de salida. Puedes continuar esta investigación en inglés.',
   },
   research: {
     eyebrow: 'Investigación con IA',

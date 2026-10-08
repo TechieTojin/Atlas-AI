@@ -10,6 +10,7 @@ pipeline as reports, and the final source list is rendered in code.
 from __future__ import annotations
 
 import logging
+import re
 import threading
 import time
 
@@ -24,6 +25,7 @@ from src.config import AtlasConfig
 from src.events import EventType, RunEmitter, RunEventBus
 from src.llm import AbortableLLM, LLMCallSink, make_llm, stage_limits
 from src.models.runs import ResearchRun, RunStatus, utcnow
+from src.scientific_text import scientific_text_issues
 from src.models.workspace import Comparison, ComparisonSource, ComparisonStatus
 from src.persistence.workspace import ComparisonsRepository
 from src.prompts.research import (
@@ -51,6 +53,24 @@ logger = logging.getLogger(__name__)
 _MAX_EVIDENCE_PER_RUN = 8
 _MAX_CHARS_PER_SOURCE = 600
 
+
+
+def _scientific_issues(synthesis) -> list[str]:
+    """Corrupted escapes or LaTeX anywhere in the generated comparison text."""
+    found: list[str] = []
+
+    def walk(value) -> None:
+        if isinstance(value, str):
+            found.extend(i for i in scientific_text_issues(value) if i not in found)
+        elif isinstance(value, dict):
+            for item in value.values():
+                walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    walk(synthesis.model_dump())
+    return found
 
 class ComparisonError(Exception):
     pass
@@ -271,11 +291,20 @@ class ComparisonService:
                 _MAX_EVIDENCE_PER_RUN,
                 _MAX_CHARS_PER_SOURCE,
             )
+            # Ownership stated per run as well as per source: both observed
+            # validation failures (2026-10) were the model crediting a point to a
+            # run that never collected the cited source. Only sources whose text
+            # is in the evidence block are listed. Validation is unchanged.
+            shown = {int(n) for n in re.findall(r"^SOURCE (\d+)$", evidence, re.MULTILINE)}
             run_overview = "\n".join(
                 f"{run_labels[r.id]}: \"{r.query}\" "
                 f"(completed {r.completed_at.date() if r.completed_at else 'n/a'}, "
-                f"{r.mode.value}, template {r.template})"
-                for r in runs
+                f"{r.mode.value}, template {r.template}); collected sources: "
+                + (", ".join(
+                    str(e.number) for e in registry.entries
+                    if index in e.run_numbers and e.number in shown
+                ) or "none")
+                for index, r in enumerate(runs, 1)
             )
 
             # The model call is bounded and abortable. This was previously a bare
@@ -431,6 +460,9 @@ class ComparisonService:
                     else ComparisonSynthesis.model_validate(raw),
                     registry,
                 )
+                issues = _scientific_issues(synthesis)
+                if issues:
+                    raise SynthesisError("; ".join(issues))
             except SynthesisError as exc:
                 problem = str(exc)
                 if attempt == 1:

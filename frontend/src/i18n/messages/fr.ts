@@ -158,8 +158,17 @@ const messages: PartialMessages = {
   outputLanguage: {
     label: 'Langue des rapports : {language} · {model}',
     currentModel: 'modèle actuel',
-    fallback: 'Les rapports en {preferred} ne sont pas encore disponibles avec le modèle actuel ; ils seront donc rédigés en {language}.',
-    unavailable: 'Les langues de sortie n’ont pas pu être vérifiées ; les rapports seront donc rédigés en {language}.',
+    unsupported:
+      'La génération de recherches en {preferred} n’est pas disponible actuellement avec le modèle configuré. Vous pouvez poursuivre cette recherche en anglais.',
+    continueInEnglish: 'Continuer en anglais',
+    continuingInEnglish:
+      'Cette recherche sera rédigée en anglais. Votre préférence de langue ne change pas.',
+    limited:
+      'La recherche en {language} utilise un modèle local plus lent : une exécution rapide prend environ 8 minutes.',
+    comparisonInEnglish:
+      'Les comparaisons ne sont pas encore validées en {preferred} ; cette comparaison sera donc rédigée en anglais.',
+    unavailable:
+      'Les langues de sortie n’ont pas pu être vérifiées. Vous pouvez poursuivre cette recherche en anglais.',
   },
   research: {
     eyebrow: 'Recherche propulsée par l’IA',

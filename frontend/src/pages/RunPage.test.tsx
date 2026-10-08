@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -53,6 +53,9 @@ describe('RunPage cancellation', () => {
     })
     renderPage()
     const button = await screen.findByRole('button', { name: 'Cancel' })
+    // The stream opens in an effect after the run loads; wait for it rather
+    // than racing the first render.
+    await waitFor(() => expect(MockEventSource.instances.length).toBeGreaterThan(0))
     act(() => {
       MockEventSource.latest().emit('RUN_STARTED', makeEvent('RUN_STARTED'))
       MockEventSource.latest().emit('PLANNING_STARTED', makeEvent('PLANNING_STARTED'))

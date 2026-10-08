@@ -87,6 +87,8 @@ export interface OutputLanguageState {
   fellBack: boolean
   /** Model that writes ``effective``, when known. */
   model: string | null
+  /** ``effective`` is generated with a stated limitation (a slower model). */
+  limited: boolean
   /** Capabilities could not be loaded (English only until they can). */
   unavailable: boolean
   loading: boolean
@@ -112,15 +114,15 @@ export function useOutputLanguage(feature: OutputFeature = 'report'): OutputLang
   }, [])
 
   const effective = resolveOutputLanguage(defaultOutputLanguage, capabilities, feature)
-  const model =
-    capabilities?.languages.find((language) => language.code === effective)?.model ??
-    capabilities?.model ??
-    null
+  const entry = capabilities?.languages.find((language) => language.code === effective)
+  const model = entry?.model ?? capabilities?.model ?? null
+  const status = entry?.features?.[feature]?.status ?? entry?.status
   return {
     preferred: defaultOutputLanguage,
     effective,
     fellBack: effective !== defaultOutputLanguage,
     model,
+    limited: status === 'limited',
     unavailable: failed,
     loading: !capabilities && !failed,
   }

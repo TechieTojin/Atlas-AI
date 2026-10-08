@@ -105,6 +105,13 @@ class _AtlasPdf(FPDF):
         self.cell(0, 8, f"Atlas · page {self.page_no()}", align="C")
 
 
+def pdf_labels(language: str) -> dict[str, str]:
+    from src.languages import stored_output_language
+
+    keys = ("report", "question", "mode", "template", "created", "completed", "project", "metrics")
+    return dict(zip(keys, _LABELS[stored_output_language(language)]))
+
+
 def _find_font(configured: str, candidates: tuple[str, ...]) -> str | None:
     paths = ([configured] if configured else []) + list(candidates)
     for path in paths:
@@ -180,7 +187,10 @@ def render_run_pdf(run: ResearchRun, font_path: str = "") -> bytes:
     pdf.ln(4)
 
     # --- Report body (safe markdown subset) ---
-    for raw_line in run.final_report.splitlines():
+    from src.export.labels import export_labels, localize_report_markers
+
+    labels = export_labels(run.output_language)
+    for raw_line in localize_report_markers(run.final_report, run.output_language).splitlines():
         line = raw_line.rstrip()
         stripped = line.strip()
         if not stripped:
@@ -211,19 +221,21 @@ def render_run_pdf(run: ResearchRun, font_path: str = "") -> bytes:
     text(label_metrics, size=12, style="B", leading=6)
     tiers = ", ".join(f"{k}: {v}" for k, v in sorted(m.source_quality_tiers.items()))
     metrics_lines = [
-        f"Total runtime: {m.total_ms / 1000:.0f}s · Iterations: {m.iterations} · "
-        f"Queries: {m.search_queries_executed}",
-        f"Sources collected/selected/cited: {m.sources_collected}/"
-        f"{m.sources_selected}/{m.sources_cited} · "
-        f"Citation coverage: {m.citation_coverage:.0%}",
+        labels["runtime"].format(
+            seconds=f"{m.total_ms / 1000:.0f}", iterations=m.iterations,
+            queries=m.search_queries_executed,
+        ),
+        labels["counts"].format(
+            collected=m.sources_collected, selected=m.sources_selected,
+            cited=m.sources_cited, coverage=f"{m.citation_coverage:.0%}",
+        ),
     ]
     if tiers:
-        metrics_lines.append(f"Source quality tiers: {tiers}")
+        metrics_lines.append(labels["tiers"].format(tiers=tiers))
     if m.pages_fetched or m.pages_attempted:
-        metrics_lines.append(
-            f"Pages fetched: {m.pages_fetched}/{m.pages_attempted} "
-            f"(snippet fallbacks: {m.snippet_fallbacks})"
-        )
+        metrics_lines.append(labels["pages"].format(
+            fetched=m.pages_fetched, attempted=m.pages_attempted, fallbacks=m.snippet_fallbacks,
+        ))
     for line in metrics_lines:
         text(line, size=9)
 

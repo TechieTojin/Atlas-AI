@@ -77,11 +77,15 @@ describe('Research in Malayalam', () => {
     expect(within(templateSelect).getByRole('option', { name: t('templates.ACADEMIC.name') })).toBeInTheDocument()
 
     await userEvent.type(screen.getByLabelText(t('queryForm.questionLabel')), 'solar growth')
+    // Malayalam generation is not available: nothing starts until the user
+    // explicitly chooses to write this research in English.
+    expect(screen.getByRole('button', { name: new RegExp(t('queryForm.start')) })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: t('outputLanguage.continueInEnglish') }))
     await userEvent.click(screen.getByRole('button', { name: new RegExp(t('queryForm.start')) }))
 
     await waitFor(() => expect(nonGetCalls(fetchMock)).toHaveLength(1))
     // The UI language never reaches the backend. The output language sent is the
-    // effective one: Malayalam generation is not available, so English.
+    // one the user chose for this research: English.
     expect(requestBody(nonGetCalls(fetchMock)[0][1])).toEqual({
       query: 'solar growth',
       mode: 'FAST',
