@@ -213,6 +213,7 @@ class SynthesizerAgent:
         repair_check: Any = None,
         retry_check: Any = None,
         memory_context: str = "",
+        output_language: str = "en",
     ) -> None:
         from src.events import NullEmitter
         from src.templates import resolve_template
@@ -242,6 +243,9 @@ class SynthesizerAgent:
         # non-citable block AFTER the numbered sources, so it can never
         # shift or pollute citation numbering.
         self._memory_context = memory_context
+        # Only code-written text depends on this; the prose language comes from
+        # the structure instruction (src.languages.language_instruction).
+        self._output_language = output_language
 
     def _invoke(self, system: str, user: str, llm: Any = None) -> str:
         model = llm or self._llm
@@ -271,7 +275,7 @@ class SynthesizerAgent:
         return (self._deadline - awake_clock()) >= self._repair_min_seconds
 
     def _fallback_result(self, selected, sources, reason: str) -> dict:
-        body = extractive_fallback_report(selected, sources)
+        body = extractive_fallback_report(selected, sources, self._output_language)
         cited = extract_valid_citations(body, len(sources))
         report = f"{body.rstrip()}\n\n{render_sources_section(sources, cited)}\n"
         return {
@@ -305,13 +309,9 @@ class SynthesizerAgent:
         question = state["question"]
 
         if not evidence:
-            report = (
-                f"# Research Report\n\n**Question:** {question}\n\n"
-                "Atlas was unable to collect any evidence for this question "
-                "(searches failed or returned no results), so no supported "
-                "answer can be given. Please retry, refine the question, or "
-                "check search API availability."
-            )
+            from src.artifact_text import artifact_text
+
+            report = artifact_text(self._output_language, "report.no_evidence", question=question)
             return {"final_report": report}
 
         selected = select_synthesis_evidence(
@@ -522,7 +522,9 @@ def trim_partial_sentence(body: str) -> str:
     return (head + "\n" if head else "") + last[: match.end()]
 
 
-def extractive_fallback_report(selected: list[Evidence], sources: list[Source]) -> str:
+def extractive_fallback_report(
+    selected: list[Evidence], sources: list[Source], language: str = "en"
+) -> str:
     """Deterministic, cited evidence summary used only when synthesis can't run.
 
     Built from claim-bearing sentences only (bibliography entries, navigation
@@ -530,6 +532,7 @@ def extractive_fallback_report(selected: list[Evidence], sources: list[Source]) 
     them. Every bullet is verbatim evidence followed by its real source
     number, so provenance holds exactly and nothing is invented. No LLM call.
     """
+    from src.artifact_text import artifact_text
     from src.tools.excerpts import claim_sentences
 
     index = {s.normalized_url: i for i, s in enumerate(sources, 1)}
@@ -546,21 +549,17 @@ def extractive_fallback_report(selected: list[Evidence], sources: list[Source]) 
                 continue
             seen_sentences.add(key)
             per_source[n] = per_source.get(n, 0) + 1
-            groups.setdefault(item.query or "Collected evidence", []).append(
+            groups.setdefault(item.query or artifact_text(language, "fallback.group"), []).append(
                 f"- {sentence[:400].rstrip()} [{n}]"
             )
 
     lines = [
-        "## Evidence Summary",
+        f"## {artifact_text(language, 'fallback.heading')}",
         "",
-        "*Atlas could not finish writing a narrative report within this run's "
-        "time budget. Below are the key findings from the collected sources, "
-        "quoted verbatim and cited. Regenerate the report or re-run in DEEP "
-        "mode for a full synthesis.*",
+        artifact_text(language, "fallback.note"),
     ]
     for query, bullets in groups.items():
         lines += ["", f"### {query[:1].upper()}{query[1:]}", "", *bullets]
     if not groups:
-        lines += ["", "No claim-bearing excerpts could be extracted from the "
-                  "collected sources; see the source list below."]
+        lines += ["", artifact_text(language, "fallback.none")]
     return "\n".join(lines)

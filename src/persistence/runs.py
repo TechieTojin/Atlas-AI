@@ -6,6 +6,7 @@ import json
 import sqlite3
 from datetime import datetime
 
+from src.languages import stored_output_language
 from src.models.runs import ResearchRun, RunSummary
 from src.persistence.db import Database, PersistenceError
 
@@ -25,6 +26,7 @@ _LIGHT_FIELDS = {
     "updated_at",
     "project_id",
     "template",
+    "output_language",
 }
 
 
@@ -50,8 +52,9 @@ class RunsRepository:
                     """
                     INSERT INTO runs (id, query, title, mode, source_scope, status,
                         approval_required, created_at, started_at, completed_at,
-                        updated_at, duration_ms, project_id, template, data)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        updated_at, duration_ms, project_id, template,
+                        output_language, data)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET
                         query=excluded.query, title=excluded.title,
                         mode=excluded.mode, source_scope=excluded.source_scope,
@@ -63,6 +66,7 @@ class RunsRepository:
                         duration_ms=excluded.duration_ms,
                         project_id=excluded.project_id,
                         template=excluded.template,
+                        output_language=excluded.output_language,
                         data=excluded.data
                     """,
                     (
@@ -80,6 +84,7 @@ class RunsRepository:
                         duration,
                         run.project_id,
                         run.template,
+                        run.output_language,
                         json.dumps(data),
                     ),
                 )
@@ -115,6 +120,7 @@ class RunsRepository:
                 "updated_at": row["updated_at"],
                 "project_id": row["project_id"],
                 "template": row["template"],
+                "output_language": stored_output_language(row["output_language"]),
             }
         )
         return ResearchRun.model_validate(payload)
@@ -145,7 +151,7 @@ class RunsRepository:
             rows = conn.execute(
                 f"""
                 SELECT id, query, title, mode, status, source_scope, project_id,
-                       template, created_at, completed_at, duration_ms
+                       template, output_language, created_at, completed_at, duration_ms
                 FROM runs {where}
                 ORDER BY created_at DESC, id DESC
                 LIMIT ? OFFSET ?

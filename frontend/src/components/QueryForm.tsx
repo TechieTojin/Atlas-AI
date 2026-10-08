@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api, errorMessage, notifyRunsChanged } from '../api/client'
 import { useDocuments } from '../hooks/useDocuments'
 import { useTemplates } from '../hooks/useTemplates'
-import { templateDescription, templateEntryName, useI18n } from '../i18n'
+import { languageName, templateDescription, templateEntryName, useI18n, useOutputLanguage } from '../i18n'
 import type { RunMode, SourceScope } from '../types'
 import {
   ArrowRightIcon,
@@ -33,7 +33,9 @@ export const CUSTOM_TEMPLATE_MAX_LENGTH = 2000
 
 export function QueryForm({ projectId }: { projectId?: string }) {
   const navigate = useNavigate()
-  const { t, uiLanguage } = useI18n()
+  const { t, uiLanguage, language: ui } = useI18n()
+  const output = useOutputLanguage()
+  const nameOf = (code: string) => languageName(code, ui.locale)
   const { documents } = useDocuments()
   const { templates } = useTemplates()
   const [query, setQuery] = useState('')
@@ -96,6 +98,8 @@ export function QueryForm({ projectId }: { projectId?: string }) {
         approval_required: approvalRequired,
         template,
         use_memory: useMemory,
+        // The effective (supported) language, not the raw preference.
+        output_language: output.effective,
         ...(isCustomTemplate ? { custom_template: customTemplate.trim() } : {}),
         ...(projectId ? { project_id: projectId } : {}),
       })
@@ -338,10 +342,31 @@ export function QueryForm({ projectId }: { projectId?: string }) {
             <span className="toggle-hint">{t('queryForm.useMemoryHint')}</span>
           </div>
         </div>
-        <button type="submit" className="btn primary glow large start-btn" disabled={!canSubmit}>
-          <span>{submitting ? t('queryForm.starting') : t('queryForm.start')}</span>
-          <ArrowRightIcon size={16} />
-        </button>
+        <div className="start-stack">
+          <button type="submit" className="btn primary glow large start-btn" disabled={!canSubmit}>
+            <span>{submitting ? t('queryForm.starting') : t('queryForm.start')}</span>
+            <ArrowRightIcon size={16} />
+          </button>
+          <p className="output-language-note" aria-live="polite">
+            <GlobeIcon size={13} className="output-language-icon" />
+            <span>
+              {t('outputLanguage.label', {
+                language: nameOf(output.effective),
+                model: output.model ?? t('outputLanguage.currentModel'),
+              })}
+            </span>
+          </p>
+          {output.fellBack && (
+            <p className="output-language-fallback" role="note">
+              {output.unavailable
+                ? t('outputLanguage.unavailable', { language: nameOf(output.effective) })
+                : t('outputLanguage.fallback', {
+                    preferred: nameOf(output.preferred),
+                    language: nameOf(output.effective),
+                  })}
+            </p>
+          )}
+        </div>
       </div>
 
       {error && (

@@ -16,6 +16,8 @@ numpy>=2,<3
 
 # V3: PDF report export
 fpdf2>=2.8,<3
+# HarfBuzz text shaping for Malayalam/Devanagari in PDF exports.
+uharfbuzz>=0.39,<1
 
 # Development / testing
 pytest>=8,<9

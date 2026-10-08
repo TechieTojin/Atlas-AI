@@ -71,3 +71,18 @@ export function formattingLocale(code: string, browserLocales?: readonly string[
   }
   return language.locale
 }
+
+/**
+ * Name of language ``code`` as written in the UI locale ("Englisch" in German,
+ * "anglais" in French), for use inside translated sentences. Falls back to the
+ * registry's English name where Intl.DisplayNames is unavailable.
+ */
+export function languageName(code: string, uiLocale: string): string {
+  try {
+    const name = new Intl.DisplayNames([uiLocale], { type: 'language' }).of(code)
+    if (name && name !== code) return name
+  } catch {
+    // Older engines: fall through.
+  }
+  return getLanguage(code).englishName
+}

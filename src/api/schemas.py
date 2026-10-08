@@ -28,6 +28,8 @@ class CreateRunRequest(BaseModel):
     template: str = "STANDARD"
     custom_template: str = Field(default="", max_length=4000)
     use_memory: bool = True
+    #: Canonical output-language code; omitted by older clients, meaning English.
+    output_language: str | None = None
 
 
 class RegenerateRequest(BaseModel):
@@ -53,6 +55,8 @@ class CreateFollowUpRequest(BaseModel):
 class CreateComparisonRequest(BaseModel):
     run_ids: list[str] = Field(min_length=2, max_length=5)
     project_id: str = ""
+    #: Canonical output-language code; omitted by older clients, meaning English.
+    output_language: str | None = None
 
 
 class EditPlanRequest(BaseModel):
@@ -121,6 +125,7 @@ class RunDetailResponse(BaseModel):
     custom_template: str = ""
     use_memory: bool = True
     regenerated_from: str = ""
+    output_language: str = "en"
     created_at: datetime
     started_at: datetime | None
     completed_at: datetime | None
@@ -189,6 +194,7 @@ class RunDetailResponse(BaseModel):
             custom_template=run.custom_template,
             use_memory=run.use_memory,
             regenerated_from=run.regenerated_from,
+            output_language=run.output_language,
             created_at=run.created_at,
             started_at=run.started_at,
             completed_at=run.completed_at,

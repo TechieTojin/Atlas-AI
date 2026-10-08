@@ -5,6 +5,7 @@ export {
   DEFAULT_LANGUAGE,
   formattingLocale,
   getLanguage,
+  languageName,
   isSupportedLanguage,
   LANGUAGES,
   matchLanguage,
@@ -23,6 +24,14 @@ export {
   tierLabel,
 } from './labels'
 export { loadMessages } from './loadMessages'
+export {
+  artifactLang,
+  loadLanguageCapabilities,
+  resetLanguageCapabilities,
+  resolveOutputLanguage,
+  useOutputLanguage,
+  type OutputLanguageState,
+} from './outputLanguage'
 export type { MessageKey } from './messages/en'
 export {
   PREFERENCE_STORAGE_KEY,

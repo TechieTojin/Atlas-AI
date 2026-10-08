@@ -160,6 +160,13 @@ export const en = {
       description: 'Your own structure instructions (max {max} characters).',
     },
   },
+  outputLanguage: {
+    label: 'Research output: {language} · {model}',
+    currentModel: 'current model',
+    fallback:
+      '{preferred} research output isn’t available with the current model yet, so reports will be written in {language}.',
+    unavailable: 'Output languages could not be checked, so reports will be written in {language}.',
+  },
   research: {
     eyebrow: 'AI-Powered Research',
     tagline: 'Your Research Partner for a Smarter Tomorrow',

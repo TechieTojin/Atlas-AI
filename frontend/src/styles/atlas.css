@@ -5840,3 +5840,49 @@ a {
 :lang(ml) .history-time {
   white-space: nowrap;
 }
+
+/* Research output language (under Start Research) ----------------------- */
+
+.start-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.output-language-note,
+.output-language-fallback {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  text-align: right;
+  max-width: 340px;
+}
+
+.output-language-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.output-language-icon {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.output-language-fallback {
+  color: var(--warning);
+}
+
+@media (max-width: 600px) {
+  .start-stack {
+    align-items: flex-start;
+  }
+
+  .output-language-note,
+  .output-language-fallback {
+    text-align: left;
+    max-width: none;
+  }
+}

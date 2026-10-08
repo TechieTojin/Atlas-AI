@@ -81,6 +81,17 @@ def _significant_runs(question: str) -> list[list[str]]:
     return runs
 
 
+def _trim_question(question: str, limit: int) -> str:
+    """The question without its punctuation frame, cut at a word boundary."""
+    from src.unicode_text import truncate_clusters
+
+    text = question.strip().strip("¿?¡!.,;:। ").strip()
+    if len(text) <= limit:
+        return text or "Untitled"
+    cut = truncate_clusters(text, limit).rsplit(" ", 1)[0]
+    return f"{cut}…"
+
+
 def _titlecase(words: list[str]) -> str:
     """Title-case while preserving words that are already capitalised oddly."""
     out = []
@@ -97,6 +108,11 @@ def topic_phrase(question: str, max_phrases: int = 2) -> str:
     which outranks a bare "barriers". The chosen phrases are then restored to
     their original order so the title still reads like the question.
     """
+    if not question.isascii():
+        # The filler lists are English. For other languages they would keep
+        # words like "limita actualmente" as the "subject", so the question
+        # itself (trimmed) is the honest label. ASCII questions are unchanged.
+        return _trim_question(question, MAX_TITLE_CHARS // 2)
     runs = _significant_runs(question)
     if not runs:
         # Nothing but filler: fall back to the question itself, trimmed.
@@ -144,17 +160,21 @@ def same_question(questions: list[str]) -> bool:
     return True
 
 
-def comparison_title(questions: list[str]) -> str:
+def comparison_title(questions: list[str], language: str = "en") -> str:
     """Name a comparison from the questions its runs asked.
 
     Runs of the same question get one subject heading, because repeating the
     question twice tells the reader nothing. Different questions are labelled
     side by side. The full questions stay visible in the UI either way.
     """
+    from src.artifact_text import artifact_text
+
     cleaned = [q.strip() for q in questions if q and q.strip()]
     if not cleaned:
-        return "Comparison"
+        return artifact_text(language, "comparison.title")
+    prefix = artifact_text(language, "comparison.title_prefix")
     if same_question(cleaned):
-        return f"Comparison: {topic_phrase(cleaned[0])}"[:MAX_TITLE_CHARS]
+        return f"{prefix}{topic_phrase(cleaned[0])}"[:MAX_TITLE_CHARS]
     sides = [topic_phrase(question, max_phrases=1) for question in cleaned]
-    return f"Comparison: {' vs '.join(sides)}"[:MAX_TITLE_CHARS]
+    versus = artifact_text(language, "comparison.versus")
+    return f"{prefix}{versus.join(sides)}"[:MAX_TITLE_CHARS]

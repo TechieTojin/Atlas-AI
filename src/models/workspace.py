@@ -67,6 +67,9 @@ class FollowUp(BaseModel):
     new_source_count: int = 0
     cited: list[int] = Field(default_factory=list)
     searched: bool = False
+    #: The parent run's output language, fixed at creation. The question stays
+    #: exactly as the user typed it; only the answer is written in this language.
+    output_language: str = "en"
     error: str = ""
     duration_ms: int = 0
     created_at: datetime = Field(default_factory=utcnow)
@@ -120,6 +123,8 @@ class Comparison(BaseModel):
     run_ids: list[str]
     run_queries: list[str] = Field(default_factory=list)
     title: str = ""
+    #: Fixed at creation; never follows the UI language. Older comparisons are English.
+    output_language: str = "en"
     status: ComparisonStatus = ComparisonStatus.PENDING
     report: str = ""
     sources: list[ComparisonSource] = Field(default_factory=list)

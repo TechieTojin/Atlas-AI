@@ -30,6 +30,7 @@ from src.models.research import Evidence
 from src.models.runs import RunStatus, utcnow
 from src.models.workspace import FollowUp, FollowUpKind, FollowUpStatus
 from src.persistence.workspace import FollowUpsRepository
+from src.languages import language_instruction
 from src.prompts.research import FOLLOWUP_SYSTEM, FOLLOWUP_USER
 from src.tools.search import dedupe_evidence, run_searches
 from src.tools.selection import select_evidence
@@ -72,8 +73,12 @@ class FollowUpService:
         search_factory=None,
         documents=None,
         executor=None,
+        languages=None,
     ) -> None:
+        from src.model_capabilities import LanguageRouter
+
         self._config = config
+        self._languages = languages or LanguageRouter(config)
         self._repo = repo
         self._runs = runs_repo
         self._bus = bus
@@ -94,15 +99,28 @@ class FollowUpService:
             raise FollowUpError("Run not found.")
         if run.status is not RunStatus.COMPLETED:
             raise FollowUpError("Follow-ups require a completed run.")
+        # The answer is written in the run's language, never the UI's. If that
+        # language can no longer be generated, refuse instead of answering in
+        # another language.
+        language = self._languages.require(run.output_language, "followup")
         followup = FollowUp(
             run_id=run_id,
             project_id=run.project_id,
             question=question,
             kind=classify_followup(question, mode),
+            output_language=language,
         )
         self._repo.save(followup)
         self._executor.submit(self._execute, followup.id)
         return followup
+
+    def _writing_config(self, language: str) -> AtlasConfig:
+        import dataclasses
+
+        model = self._languages.model_for(language)
+        return self._config if model == self._config.model else dataclasses.replace(
+            self._config, model=model
+        )
 
     def get(self, followup_id: str) -> FollowUp:
         followup = self._repo.get(followup_id)
@@ -182,11 +200,11 @@ class FollowUpService:
             if self._check_cancel(followup, emitter):
                 return
 
-            llm = self._llm_factory(self._config, reasoning=False)
+            llm = self._llm_factory(self._writing_config(followup.output_language), reasoning=False)
             report_context = run.final_report[:_MAX_REPORT_CONTEXT_CHARS]
             response = llm.invoke(
                 [
-                    ("system", FOLLOWUP_SYSTEM),
+                    ("system", FOLLOWUP_SYSTEM + language_instruction(followup.output_language)),
                     (
                         "user",
                         FOLLOWUP_USER.format(

@@ -79,6 +79,28 @@ export interface CreateRunRequest {
   template?: string
   custom_template?: string
   use_memory?: boolean
+  /** Resolved, supported output language. The UI language is never sent. */
+  output_language?: string
+}
+
+export interface LanguageCapability {
+  code: string
+  english_name: string
+  native_name: string
+  model: string
+  status: 'supported' | 'unsupported' | 'unvalidated'
+  supported: boolean
+  reason: string
+  /** Per-artifact verdicts; a language can pass for reports but not comparisons. */
+  features?: Partial<Record<OutputFeature, { supported: boolean; reason: string }>>
+}
+
+export type OutputFeature = 'report' | 'followup' | 'comparison'
+
+export interface LanguageCapabilities {
+  default_output_language: string
+  model: string
+  languages: LanguageCapability[]
 }
 
 export interface PlanEditRequest {
@@ -121,6 +143,7 @@ export interface CreateFollowUpRequest {
 export interface CreateComparisonRequest {
   run_ids: string[]
   project_id?: string
+  output_language?: string
 }
 
 export const api = {
@@ -159,6 +182,8 @@ export const api = {
   getRunClaims: (id: string) => request<{ claims: Claim[] }>(`/runs/${id}/claims`),
 
   listTemplates: () => request<{ templates: TemplateInfo[] }>('/templates'),
+
+  getLanguageCapabilities: () => request<LanguageCapabilities>('/capabilities/languages'),
 
   uploadDocument: (file: File, projectId?: string) => {
     const form = new FormData()

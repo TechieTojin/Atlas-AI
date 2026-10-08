@@ -80,6 +80,7 @@ function FollowUpItem({ followup }: { followup: FollowUp }) {
             parentSourceCount={followup.parent_source_count}
             className="report followup-answer"
             emptyNote={t('followUp.noAnswer')}
+            language={followup.output_language}
           />
           <FollowUpSources followup={followup} />
         </>

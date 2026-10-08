@@ -30,6 +30,8 @@ from src.api.schemas import (
     UpdateProjectRequest,
 )
 from src.config import ConfigError
+from src.languages import UnknownLanguageError
+from src.model_capabilities import UnsupportedOutputLanguageError
 from src.events.bus import STREAM_END
 from src.persistence.db import PersistenceError
 from src.rag.service import UploadError
@@ -127,6 +129,14 @@ def create_app(container: Container | None = None) -> FastAPI:
             return JSONResponse(status_code=409, content={"detail": message})
         return _domain_404_or_422(exc)
 
+    @app.exception_handler(UnknownLanguageError)
+    def unknown_language(request, exc):
+        return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+    @app.exception_handler(UnsupportedOutputLanguageError)
+    def unsupported_language(request, exc):
+        return JSONResponse(status_code=422, content={"detail": str(exc)})
+
     @app.exception_handler(PersistenceError)
     def persistence_error(request, exc):
         logger.error("Persistence error: %s", exc)
@@ -171,6 +181,7 @@ def create_app(container: Container | None = None) -> FastAPI:
             template=body.template,
             custom_template=body.custom_template,
             use_memory=body.use_memory,
+            output_language=body.output_language,
         )
         return RunDetailResponse.from_run(run)
 
@@ -188,6 +199,11 @@ def create_app(container: Container | None = None) -> FastAPI:
             limit=limit, offset=offset, search=search, project_id=project_id
         )
         return RunListResponse(runs=runs, total=total, limit=limit, offset=offset)
+
+    @app.get("/api/capabilities/languages")
+    def language_capabilities(request: Request):
+        """Which output languages the configured models can write. Pure config."""
+        return ctn(request).languages.describe()
 
     @app.get("/api/templates")
     def templates(request: Request):
@@ -459,7 +475,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     @app.post("/api/comparisons", status_code=201)
     def create_comparison(request: Request, body: CreateComparisonRequest):
         comparison = ctn(request).comparison_service.create(
-            body.run_ids, body.project_id
+            body.run_ids, body.project_id, body.output_language
         )
         return comparison.model_dump(mode="json")
 

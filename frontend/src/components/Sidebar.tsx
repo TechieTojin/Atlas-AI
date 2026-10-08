@@ -3,7 +3,7 @@ import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
 import { api, errorMessage } from '../api/client'
 import { useRuns } from '../hooks/useRuns'
 import type { Theme } from '../hooks/useTheme'
-import { agoLabel, templateName, useI18n } from '../i18n'
+import { agoLabel, templateName, useI18n, useOutputLanguage } from '../i18n'
 import type { RunSummary } from '../types'
 import { MAX_COMPARE, MIN_COMPARE } from './CompareRunsList'
 import {
@@ -55,6 +55,7 @@ function HistoryRowBody({ run }: { run: RunSummary }) {
 export function Sidebar({ open, onClose, theme, onToggleTheme }: SidebarProps) {
   const { runs, loading, error } = useRuns()
   const { t } = useI18n()
+  const output = useOutputLanguage('comparison')
   const navigate = useNavigate()
   const location = useLocation()
   const [compareMode, setCompareMode] = useState(false)
@@ -83,7 +84,10 @@ export function Sidebar({ open, onClose, theme, onToggleTheme }: SidebarProps) {
     setCompareBusy(true)
     setCompareError(null)
     try {
-      const comparison = await api.createComparison({ run_ids: selected })
+      const comparison = await api.createComparison({
+        run_ids: selected,
+        output_language: output.effective,
+      })
       exitCompareMode()
       onClose()
       navigate(`/comparisons/${comparison.id}`)

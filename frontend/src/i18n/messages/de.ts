@@ -155,6 +155,12 @@ const messages: PartialMessages = {
       description: 'Eigene Anweisungen zur Struktur (max. {max} Zeichen).',
     },
   },
+  outputLanguage: {
+    label: 'Recherche-Ausgabe: {language} · {model}',
+    currentModel: 'aktuelles Modell',
+    fallback: 'Recherche-Ausgabe auf {preferred} ist mit dem aktuellen Modell noch nicht verfügbar; Berichte werden daher auf {language} verfasst.',
+    unavailable: 'Die Ausgabesprachen konnten nicht geprüft werden; Berichte werden daher auf {language} verfasst.',
+  },
   research: {
     eyebrow: 'KI-gestützte Recherche',
     tagline: 'Ihr Recherchepartner für ein klügeres Morgen',

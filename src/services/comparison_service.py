@@ -42,6 +42,8 @@ from src.services.comparison_synthesis import (
 )
 from src.services.comparison_synthesis import ComparisonError as SynthesisError
 from src.services.comparison_title import comparison_title
+from src.artifact_text import artifact_text
+from src.languages import language_instruction
 from src.tools.selection import select_evidence
 
 logger = logging.getLogger(__name__)
@@ -77,8 +79,12 @@ class ComparisonService:
         bus: RunEventBus,
         llm_factory,
         executor,
+        languages=None,
     ) -> None:
+        from src.model_capabilities import LanguageRouter
+
         self._config = config
+        self._languages = languages or LanguageRouter(config)
         self._repo = repo
         self._runs = runs_repo
         self._bus = bus
@@ -89,7 +95,13 @@ class ComparisonService:
         self._state_lock = threading.Lock()
         self._active: dict[str, CancelScope] = {}
 
-    def create(self, run_ids: list[str], project_id: str = "") -> Comparison:
+    def create(
+        self, run_ids: list[str], project_id: str = "", output_language: str | None = None
+    ) -> Comparison:
+        from src.languages import parse_output_language
+
+        # Strict, like research runs: unknown or unsupported languages are refused.
+        language = self._languages.require(parse_output_language(output_language), "comparison")
         ids = list(dict.fromkeys(run_ids or []))
         if len(ids) < 2:
             raise ComparisonError("A comparison needs at least two distinct runs.")
@@ -111,11 +123,20 @@ class ComparisonService:
             project_id=project_id,
             run_ids=ids,
             run_queries=[r.query for r in runs],
-            title=comparison_title([r.query for r in runs]),
+            title=comparison_title([r.query for r in runs], language),
+            output_language=language,
         )
         self._repo.save(comparison)
         self._executor.submit(self._execute, comparison.id)
         return comparison
+
+    def _writing_config(self, language: str) -> AtlasConfig:
+        import dataclasses
+
+        model = self._languages.model_for(language)
+        return self._config if model == self._config.model else dataclasses.replace(
+            self._config, model=model
+        )
 
     def get(self, comparison_id: str) -> Comparison:
         comparison = self._repo.get(comparison_id)
@@ -263,10 +284,13 @@ class ComparisonService:
             # nothing could ever stop it. One such call ran for over 20 minutes,
             # holding Ollama against every other request.
             _max_tokens, timeout = stage_limits(self._config, "comparison")
+            # The comparison's own language picks the model; the repair attempt
+            # reuses this handle and prompt, so it inherits the language too.
+            writing = self._writing_config(comparison.output_language)
             llm = AbortableLLM(
                 lambda: make_llm(
                     self._llm_factory,
-                    self._config,
+                    writing,
                     reasoning=False,
                     stage="comparison",
                     call_sink=sink,
@@ -284,7 +308,7 @@ class ComparisonService:
             # runs..." ended up being the saved report.
             structured = llm.with_structured_output(ComparisonSynthesis)
             prompt = [
-                ("system", COMPARISON_SYSTEM),
+                ("system", COMPARISON_SYSTEM + language_instruction(comparison.output_language)),
                 (
                     "user",
                     COMPARISON_USER.format(
@@ -303,8 +327,9 @@ class ComparisonService:
                 synthesis,
                 registry,
                 runs,
-                comparison.title or "Comparison",
+                comparison.title or artifact_text(comparison.output_language, "comparison.title"),
                 render_sources_section,
+                comparison.output_language,
             )
 
             comparison.report = report

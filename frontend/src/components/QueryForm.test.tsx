@@ -73,6 +73,8 @@ describe('QueryForm', () => {
       approval_required: true,
       template: 'STANDARD',
       use_memory: true,
+      // Capabilities are not mocked here, so only English is known to be supported.
+      output_language: 'en',
     })
   })
 
@@ -208,6 +210,7 @@ describe('QueryForm templates and memory', () => {
       custom_template: 'Two-part briefing.',
       use_memory: false,
       project_id: 'proj-7',
+      output_language: 'en',
     })
   })
 })

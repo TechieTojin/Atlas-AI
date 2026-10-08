@@ -93,6 +93,7 @@ def build_workflow(
     deadline: float | None = None,
     budget: Any = None,
     memory_context: str = "",
+    output_language: str = "en",
 ):
     """Compile the Atlas graph with injected LLM and search dependencies.
 
@@ -149,6 +150,7 @@ def build_workflow(
         repair_check=budget.repair_check if budget is not None else None,
         retry_check=budget.synthesis_retry_check if budget is not None else None,
         memory_context=memory_context,
+        output_language=output_language,
     )
 
     def plan_created(state: AtlasState, result: dict) -> None:

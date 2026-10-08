@@ -7,6 +7,7 @@ from concurrent.futures import Executor
 from src.config import AtlasConfig, load_config
 from src.events import RunEventBus
 from src.memory.project_memory import ProjectMemoryService
+from src.model_capabilities import LanguageRouter
 from src.memory.service import MemoryService
 from src.persistence import (
     Database,
@@ -58,6 +59,9 @@ class Container:
         self.kg_repo = KGRepository(self.db)
         self.findings_repo = FindingsRepository(self.db)
         self.bus = RunEventBus()
+        # One router decides language -> model and capability for every
+        # generating service, so they can never disagree.
+        self.languages = LanguageRouter(self.config)
         if embed_fn is None:
             from src.rag.embeddings import create_ollama_embedder
 
@@ -93,6 +97,7 @@ class Container:
             executor=executor,
             projects=self.projects_repo,
             page_fetcher_factory=page_fetcher_factory,
+            languages=self.languages,
         )
         # Follow-ups, comparisons, and the knowledge graph share the research
         # service's worker pool, LLM factory, and search factory.
@@ -108,6 +113,7 @@ class Container:
             search_factory=shared_search,
             documents=self.document_service,
             executor=shared_executor,
+            languages=self.languages,
         )
         self.comparison_service = ComparisonService(
             self.config,
@@ -116,6 +122,7 @@ class Container:
             self.bus,
             llm_factory=shared_llm,
             executor=shared_executor,
+            languages=self.languages,
         )
         self.overview_service = ProjectOverviewService(
             self.projects_repo, self.runs_repo, self.findings_repo, self.documents_repo

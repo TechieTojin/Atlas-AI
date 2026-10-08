@@ -1,5 +1,5 @@
 import { createElement, useMemo } from 'react'
-import { useI18n } from '../i18n'
+import { artifactLang, useI18n } from '../i18n'
 import type { Claim, Evidence, Source } from '../types'
 import { isSourcesSection, isSummarySection, splitSections, type ReportSection } from '../utils/report'
 import { CitedMarkdown, useSourceDrawer } from './CitedReport'
@@ -7,6 +7,8 @@ import { FileTextIcon, LayersIcon } from './icons'
 
 export interface ReportSectionsProps {
   markdown: string
+  /** Language the report was written in (its own, not the UI's). */
+  language?: string
   sources: Source[]
   evidence?: Evidence[]
   loadClaims?: () => Promise<Claim[]>
@@ -30,8 +32,9 @@ export function ReportSections({
   evidence = [],
   loadClaims,
   emptyNote,
+  language,
 }: ReportSectionsProps) {
-  const { t } = useI18n()
+  const { t, language: ui } = useI18n()
   const sections = useMemo(() => splitSections(markdown), [markdown])
   const { onCite, drawer } = useSourceDrawer({ sources, evidence, loadClaims })
 
@@ -41,7 +44,7 @@ export function ReportSections({
 
   let number = 0
   return (
-    <div className="report-sections">
+    <article className="report-sections" lang={artifactLang(language)}>
       {sections.map((section, index) => {
         const summary = index === 0 && (section.level === 0 || isSummarySection(section))
         const sourcesList = isSourcesSection(section)
@@ -66,10 +69,17 @@ export function ReportSections({
                 )}
               </span>
               <div className="report-card-title-wrap">
-                {section.title ? (
+                {sourcesList ? (
+                  // The source list is rendered by Atlas, so its heading is UI chrome.
+                  <h2 className="report-card-title" lang={ui.locale}>
+                    {t('runTabs.sources')}
+                  </h2>
+                ) : section.title ? (
                   <SectionHeading section={section} className="report-card-title" />
                 ) : (
-                  <h2 className="report-card-title">{t('report.summary')}</h2>
+                  <h2 className="report-card-title" lang={ui.locale}>
+                    {t('report.summary')}
+                  </h2>
                 )}
               </div>
             </header>
@@ -80,6 +90,6 @@ export function ReportSections({
         )
       })}
       {drawer}
-    </div>
+    </article>
   )
 }

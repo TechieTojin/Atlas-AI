@@ -319,6 +319,7 @@ export function ComparisonPage() {
             loadClaims={loadClaims}
             usageBySourceIndex={usageBySourceIndex}
             emptyNote={t('comparison.noReport')}
+            language={comparison.output_language}
           />
         </>
       )}

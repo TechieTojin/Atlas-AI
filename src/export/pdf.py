@@ -6,8 +6,12 @@ numbered lists, bold markers stripped, links flattened to "text (url)", and
 simple tables as aligned text. All report content is written as TEXT — there
 is no HTML path, so script/HTML injection in evidence cannot execute.
 
-Unicode: a system TTF (configurable via ATLAS_PDF_FONT) is used when
-available; otherwise text degrades gracefully to Latin-1 with replacement.
+Unicode: a system TTF (configurable via ATLAS_PDF_FONT) is used for Latin
+text; bundled Noto Sans Malayalam and Noto Sans Devanagari fonts are fallbacks
+for those scripts, shaped with HarfBuzz (``uharfbuzz``) so conjuncts, chillus
+and vowel signs render correctly. Shaping is only switched on for documents
+that contain such text, so English PDFs are produced exactly as before.
+Without any TTF, text degrades to Latin-1 with replacement.
 """
 
 from __future__ import annotations
@@ -34,6 +38,56 @@ _BOLD_CANDIDATES = (
     r"C:\Windows\Fonts\calibrib.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
 )
+
+#: Bundled script fonts (SIL OFL 1.1, see fonts/OFL.txt). Backend-only files.
+_FONT_DIR = os.path.join(os.path.dirname(__file__), "fonts")
+_SCRIPT_FONTS = (
+    # family, regular, bold, Unicode block
+    ("atlas-ml", "NotoSansMalayalam-Regular.ttf", "NotoSansMalayalam-Bold.ttf", (0x0D00, 0x0D7F)),
+    ("atlas-hi", "NotoSansDevanagari-Regular.ttf", "NotoSansDevanagari-Bold.ttf", (0x0900, 0x097F)),
+)
+
+#: Labels Atlas writes into the PDF itself, in the report's own language.
+_LABELS = {
+    "en": ("Research Report", "Question", "Mode", "Template", "Created", "Completed", "Project", "Run Metrics"),
+    "es": ("Informe de investigación", "Pregunta", "Modo", "Plantilla", "Creado", "Completado", "Proyecto", "Métricas de la investigación"),
+    "fr": ("Rapport de recherche", "Question", "Mode", "Modèle", "Créé", "Terminé", "Projet", "Métriques de la recherche"),
+    "de": ("Recherchebericht", "Frage", "Modus", "Vorlage", "Erstellt", "Abgeschlossen", "Projekt", "Recherche-Metriken"),
+    "hi": ("अनुसंधान रिपोर्ट", "प्रश्न", "मोड", "टेम्पलेट", "बनाया गया", "पूरा हुआ", "प्रोजेक्ट", "रन मेट्रिक्स"),
+    "ml": ("ഗവേഷണ റിപ്പോർട്ട്", "ചോദ്യം", "മോഡ്", "ടെംപ്ലേറ്റ്", "സൃഷ്ടിച്ചത്", "പൂർത്തിയായത്", "പ്രോജക്റ്റ്", "റൺ മെട്രിക്സ്"),
+}
+
+
+def _needs_shaping(text: str) -> bool:
+    """Whether ``text`` contains a script that needs HarfBuzz shaping."""
+    return any(
+        start <= ord(char) <= end
+        for char in text
+        for _family, _regular, _bold, (start, end) in _SCRIPT_FONTS
+    )
+
+
+def _enable_script_fonts(pdf: FPDF, language: str = "en") -> bool:
+    """Register the bundled script fonts as fallbacks and turn shaping on.
+
+    The report language's own script is tried first: both fonts carry shared
+    marks such as the danda, which must come from the matching typeface.
+    """
+    try:
+        import uharfbuzz  # noqa: F401  (fpdf2 shapes text through it)
+    except ImportError:
+        logger.warning("uharfbuzz is not installed; Indic text in PDFs cannot be shaped.")
+        return False
+    families = []
+    ordered = sorted(_SCRIPT_FONTS, key=lambda font: font[0] != f"atlas-{language}")
+    for family, regular, bold, _block in ordered:
+        pdf.add_font(family, "", os.path.join(_FONT_DIR, regular))
+        pdf.add_font(family, "B", os.path.join(_FONT_DIR, bold))
+        families.append(family)
+    pdf.set_fallback_fonts(families)
+    pdf.set_text_shaping(True)
+    return True
+
 
 _MD_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)\s]+)\)")
 _MD_EMPHASIS_RE = re.compile(r"(\*\*|\*|__|`)")
@@ -86,6 +140,13 @@ def render_run_pdf(run: ResearchRun, font_path: str = "") -> bytes:
     else:
         family = "helvetica"
         logger.warning("No TTF font found; PDF falls back to Latin-1 text.")
+    from src.languages import stored_output_language
+
+    if unicode_ok and _needs_shaping(f"{run.query}\n{run.final_report}"):
+        _enable_script_fonts(pdf, stored_output_language(run.output_language))
+
+    (label_report, label_question, label_mode, label_template, label_created,
+     label_completed, label_project, label_metrics) = _LABELS[stored_output_language(run.output_language)]
 
     def text(content: str, size: int = 10, style: str = "", leading: float = 5.2):
         pdf.set_font(family, style, size)
@@ -100,18 +161,18 @@ def render_run_pdf(run: ResearchRun, font_path: str = "") -> bytes:
     pdf.set_font(family, "B", 22)
     pdf.cell(0, 12, "Atlas", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font(family, "", 10)
-    pdf.cell(0, 6, "Research Report", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, label_report, new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
-    text(f"Question: {run.query}", size=12, style="B", leading=6)
+    text(f"{label_question}: {run.query}", size=12, style="B", leading=6)
     meta = [
-        f"Mode: {run.mode.value}",
-        f"Template: {run.template}",
-        f"Created: {run.created_at.strftime('%Y-%m-%d %H:%M UTC')}",
+        f"{label_mode}: {run.mode.value}",
+        f"{label_template}: {run.template}",
+        f"{label_created}: {run.created_at.strftime('%Y-%m-%d %H:%M UTC')}",
     ]
     if run.completed_at:
-        meta.append(f"Completed: {run.completed_at.strftime('%Y-%m-%d %H:%M UTC')}")
+        meta.append(f"{label_completed}: {run.completed_at.strftime('%Y-%m-%d %H:%M UTC')}")
     if run.project_id:
-        meta.append(f"Project: {run.project_id}")
+        meta.append(f"{label_project}: {run.project_id}")
     text(" · ".join(meta), size=9)
     pdf.ln(2)
     pdf.set_draw_color(150, 150, 150)
@@ -147,7 +208,7 @@ def render_run_pdf(run: ResearchRun, font_path: str = "") -> bytes:
     # --- Metrics summary ---
     m = run.metrics
     pdf.ln(4)
-    text("Run Metrics", size=12, style="B", leading=6)
+    text(label_metrics, size=12, style="B", leading=6)
     tiers = ", ".join(f"{k}: {v}" for k, v in sorted(m.source_quality_tiers.items()))
     metrics_lines = [
         f"Total runtime: {m.total_ms / 1000:.0f}s · Iterations: {m.iterations} · "

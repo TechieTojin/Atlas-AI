@@ -126,6 +126,23 @@ def _int_env(name: str, default: int, minimum: int = 1) -> int:
     return value
 
 
+def _language_models_env(raw: str) -> tuple[tuple[str, str], ...]:
+    """Parse ``ATLAS_LANGUAGE_MODELS="ml=qwen3:8b,hi=qwen3:8b"``."""
+    from src.languages import OUTPUT_LANGUAGES
+
+    pairs: list[tuple[str, str]] = []
+    for item in (part.strip() for part in raw.split(",")):
+        if not item:
+            continue
+        code, sep, model = (piece.strip() for piece in item.partition("="))
+        if not sep or not model:
+            raise ConfigError(f"ATLAS_LANGUAGE_MODELS entry {item!r} must look like code=model.")
+        if code not in OUTPUT_LANGUAGES:
+            raise ConfigError(f"ATLAS_LANGUAGE_MODELS has unknown language {code!r}.")
+        pairs.append((code, model))
+    return tuple(pairs)
+
+
 @dataclass(frozen=True)
 class AtlasConfig:
     """Immutable runtime configuration."""
@@ -182,6 +199,10 @@ class AtlasConfig:
     budget_allocation: bool = False  # FAST: protect a measured synthesis reserve
     synthesis_max_words: int = 0  # 0 = no hard ceiling (DEEP)
     temperature: float = field(default=0.2)
+    #: Output-language -> model routing, e.g. (("ml", "qwen3:8b"),). Languages
+    #: not listed use ``model``. Whether a routed pair may actually generate is
+    #: decided by ``src.model_capabilities``, never by this setting alone.
+    language_models: tuple[tuple[str, str], ...] = ()
 
     @property
     def database_path(self) -> str:
@@ -303,4 +324,5 @@ def load_config(dotenv_path: str | None = None) -> AtlasConfig:
             "ATLAS_DEEP_RUN_BUDGET_SECONDS", DEFAULT_RUN_BUDGET_SECONDS, minimum=0
         ),
         retrieval_workers=_int_env("ATLAS_RETRIEVAL_WORKERS", DEFAULT_RETRIEVAL_WORKERS),
+        language_models=_language_models_env(os.getenv("ATLAS_LANGUAGE_MODELS", "")),
     )

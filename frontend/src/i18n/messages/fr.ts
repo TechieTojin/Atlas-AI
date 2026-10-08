@@ -155,6 +155,12 @@ const messages: PartialMessages = {
       description: 'Vos propres consignes de structure ({max} caractères max.).',
     },
   },
+  outputLanguage: {
+    label: 'Langue des rapports : {language} · {model}',
+    currentModel: 'modèle actuel',
+    fallback: 'Les rapports en {preferred} ne sont pas encore disponibles avec le modèle actuel ; ils seront donc rédigés en {language}.',
+    unavailable: 'Les langues de sortie n’ont pas pu être vérifiées ; les rapports seront donc rédigés en {language}.',
+  },
   research: {
     eyebrow: 'Recherche propulsée par l’IA',
     tagline: 'Votre partenaire de recherche pour un avenir plus éclairé',

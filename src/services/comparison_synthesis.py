@@ -504,13 +504,25 @@ def _citation_marker(citations: list[int]) -> str:
     return "".join(f"[{number}]" for number in citations)
 
 
-def _run_names(runs: list[int], registry: SourceRegistry) -> str:
-    names = [registry.run_labels.get(number, f"Run {number}") for number in sorted(runs)]
+def _run_names(runs: list[int], registry: SourceRegistry, language: str = "en") -> str:
+    from src.artifact_text import artifact_text
+
+    names = [_run_label(number, registry, language) for number in sorted(runs)]
+    joiner = artifact_text(language, "comparison.and")
     if len(names) <= 1:
         return names[0] if names else ""
     if len(names) == 2:
-        return " and ".join(names)
-    return ", ".join(names[:-1]) + " and " + names[-1]
+        return joiner.join(names)
+    return ", ".join(names[:-1]) + joiner + names[-1]
+
+
+def _run_label(number: int, registry: SourceRegistry, language: str = "en") -> str:
+    """'Run 2' in the comparison's language (English keeps the registry's label)."""
+    from src.artifact_text import artifact_text
+
+    if language == "en":
+        return registry.run_labels.get(number, f"Run {number}")
+    return artifact_text(language, "comparison.run", number=number)
 
 
 def conclusion_citations(synthesis: ComparisonSynthesis) -> list[int]:
@@ -558,62 +570,70 @@ def render_comparison(
     runs: list[ResearchRun],
     title: str,
     render_sources: object,
+    language: str = "en",
 ) -> str:
-    """Render the final Markdown. Atlas writes every heading and every number."""
-    lines: list[str] = [f"# {title}", "", "## Overview", "", synthesis.overview, ""]
+    """Render the final Markdown. Atlas writes every heading and every number.
 
-    lines += ["## Agreements", ""]
+    Headings and fixed sentences are in the comparison's output language; the
+    trailing ``## Sources`` block stays the canonical English protocol marker.
+    """
+    from src.artifact_text import artifact_text
+
+    def text(key: str, **params: object) -> str:
+        return artifact_text(language, key, **params)
+
+    lines: list[str] = [
+        f"# {title}", "", f"## {text('comparison.overview')}", "", synthesis.overview, ""
+    ]
+
+    lines += [f"## {text('comparison.agreements')}", ""]
     if synthesis.agreements:
         for point in synthesis.agreements:
-            names = _run_names(point.runs, registry)
+            names = _run_names(point.runs, registry, language)
             lines.append(
                 f"- {names}: {point.text} {_citation_marker(point.citations)}".rstrip()
             )
     else:
-        lines.append(
-            "No finding was supported by more than one of the selected research runs."
-        )
+        lines.append(text("comparison.no_agreements"))
     lines.append("")
 
-    lines += ["## Contradictions", ""]
+    lines += [f"## {text('comparison.contradictions')}", ""]
     if synthesis.contradictions:
         for item in synthesis.contradictions:
             lines.append(f"- **{item.topic}**")
             for position in item.positions:
-                names = _run_names(position.runs, registry)
+                names = _run_names(position.runs, registry, language)
                 lines.append(
                     f"  - {names}: {position.text} "
                     f"{_citation_marker(position.citations)}".rstrip()
                 )
     else:
         # Agreement is a real result. Inventing disagreement would not be.
-        lines.append(
-            "No direct contradiction was identified between the selected research runs."
-        )
+        lines.append(text("comparison.no_contradictions"))
     lines.append("")
 
-    lines += ["## New or Unique Evidence", ""]
+    lines += [f"## {text('comparison.unique')}", ""]
     if synthesis.unique_evidence:
         for point in synthesis.unique_evidence:
-            label = registry.run_labels.get(point.run, f"Run {point.run}")
+            label = _run_label(point.run, registry, language)
             lines.append(
                 f"- {label}: {point.text} {_citation_marker(point.citations)}".rstrip()
             )
     else:
-        lines.append("Neither run contributed evidence the other did not also reach.")
+        lines.append(text("comparison.no_unique"))
     lines.append("")
 
     conclusion = synthesis.conclusion.text
     marker = _citation_marker(conclusion_citations(synthesis))
-    lines += ["## Conclusion", "", f"{conclusion} {marker}".rstrip(), ""]
+    lines += [f"## {text('comparison.conclusion')}", "", f"{conclusion} {marker}".rstrip(), ""]
 
     # Source statistics, computed from the registry rather than described by the model.
-    lines += ["## Source Differences", ""]
-    lines.append(f"- Combined unique sources: {registry.count}")
-    lines.append(f"- Shared across runs: {len(registry.shared())}")
+    lines += [f"## {text('comparison.source_differences')}", ""]
+    lines.append(f"- {text('comparison.combined', count=registry.count)}")
+    lines.append(f"- {text('comparison.shared', count=len(registry.shared()))}")
     for index, _run in enumerate(runs, 1):
-        label = registry.run_labels.get(index, f"Run {index}")
-        lines.append(f"- Unique to {label}: {len(registry.unique_to(index))}")
+        label = _run_label(index, registry, language)
+        lines.append(f"- {text('comparison.unique_to', label=label, count=len(registry.unique_to(index)))}")
     lines.append("")
 
     sources = [entry.source for entry in registry.entries]

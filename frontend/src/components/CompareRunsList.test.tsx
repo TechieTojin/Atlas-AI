@@ -62,6 +62,10 @@ describe('CompareRunsList', () => {
     const postCall = mock.mock.calls.find(
       ([url, init]) => url === '/api/comparisons' && init?.method === 'POST',
     )
-    expect(requestBody(postCall?.[1])).toEqual({ run_ids: ['r1', 'r2'], project_id: 'proj-1' })
+    expect(requestBody(postCall?.[1])).toEqual({
+      run_ids: ['r1', 'r2'],
+      project_id: 'proj-1',
+      output_language: 'en',
+    })
   })
 })

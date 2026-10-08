@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, errorMessage } from '../api/client'
-import { agoLabel, useI18n } from '../i18n'
+import { agoLabel, useI18n, useOutputLanguage } from '../i18n'
 import type { RunSummary } from '../types'
 import { ModeBadge, StatusDot, TemplateBadge } from './StatusBadge'
 
@@ -22,6 +22,7 @@ export function CompareRunsList({
 }) {
   const navigate = useNavigate()
   const { t, format } = useI18n()
+  const output = useOutputLanguage('comparison')
   const [selected, setSelected] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -42,6 +43,7 @@ export function CompareRunsList({
       const comparison = await api.createComparison({
         run_ids: selected,
         ...(projectId ? { project_id: projectId } : {}),
+        output_language: output.effective,
       })
       navigate(`/comparisons/${comparison.id}`)
     } catch (err) {

@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
-import { useI18n, type Translate } from '../i18n'
+import { artifactLang, useI18n, type Translate } from '../i18n'
 import type { Claim, Evidence, Source } from '../types'
 import { ExtractionBadge } from './EvidenceList'
 import { QualityBadge } from './QualityBadge'
@@ -349,6 +349,8 @@ export interface CitedReportProps {
   parentSourceCount?: number
   emptyNote?: string
   className?: string
+  /** Language the content was written in (sets its ``lang`` attribute). */
+  language?: string
 }
 
 /**
@@ -364,6 +366,7 @@ export function CitedReport({
   parentSourceCount,
   emptyNote,
   className = 'report',
+  language,
 }: CitedReportProps) {
   const { t } = useI18n()
   const { onCite, drawer } = useSourceDrawer({
@@ -379,7 +382,7 @@ export function CitedReport({
   }
 
   return (
-    <div className={className}>
+    <div className={className} lang={artifactLang(language)}>
       <CitedMarkdown markdown={markdown} sources={sources} onCite={onCite} />
       {drawer}
     </div>

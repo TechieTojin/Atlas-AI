@@ -10,6 +10,7 @@ export.
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import threading
 import time
@@ -37,6 +38,8 @@ from src.models.runs import (
     SourceScope,
     utcnow,
 )
+from src.languages import language_instruction, parse_output_language
+from src.model_capabilities import LanguageRouter
 from src.modes import apply_mode
 from src.persistence import EventsRepository, RunsRepository
 from src.rag.service import DocumentService
@@ -100,8 +103,10 @@ class ResearchService:
         executor: Executor | None = None,
         projects=None,
         page_fetcher_factory=None,
+        languages: LanguageRouter | None = None,
     ) -> None:
         self._config = config
+        self._languages = languages or LanguageRouter(config)
         self._runs = runs
         self._events = events
         self._bus = bus
@@ -217,9 +222,14 @@ class ResearchService:
         template: str = "STANDARD",
         custom_template: str = "",
         use_memory: bool = True,
+        output_language: str | None = None,
     ) -> ResearchRun:
         from src.templates import resolve_template
 
+        # Strict: an unknown code or a language the routed model cannot write is
+        # rejected here, before anything runs. Nothing is ever generated in
+        # English and labelled as another language.
+        language = self._languages.require(parse_output_language(output_language))
         query = query.strip()
         if not query:
             raise PlanValidationError("A non-empty research question is required.")
@@ -242,6 +252,7 @@ class ResearchService:
             template=template_id,
             custom_template=custom_template if template_id == "CUSTOM" else "",
             use_memory=use_memory,
+            output_language=language,
         )
         self._runs.save(run)
         self._scope_for(run.id)
@@ -255,7 +266,22 @@ class ResearchService:
         return run
 
     def _run_config(self, run: ResearchRun) -> AtlasConfig:
-        return apply_mode(self._config, run.mode)
+        config = apply_mode(self._config, run.mode)
+        # A validated non-English language may carry its own word ceiling (its
+        # tokens-per-word differs from English). English is never overridden.
+        overrides = self._languages.budget_overrides(run.output_language, run.mode.value)
+        return dataclasses.replace(config, **overrides) if overrides else config
+
+    def _writing_config(self, config: AtlasConfig, run: ResearchRun) -> AtlasConfig:
+        """Config for the stages that write prose (synthesis, citation repair).
+
+        The run's output language selects the model through the central router.
+        For English this is ``config`` itself, so English runs are unchanged.
+        Planning, critique and search keep the run config: the evidence Atlas
+        looks for does not depend on the language it reports in.
+        """
+        model = self._languages.model_for(run.output_language)
+        return config if model == config.model else dataclasses.replace(config, model=model)
 
     def _start_budget(self, run_id: str, config: AtlasConfig, spent: float = 0.0) -> None:
         now = awake_clock()
@@ -413,12 +439,13 @@ class ResearchService:
             config, "critic", structured_reasoning, sink, run_id,
             run_deadline=budget.critic_deadline if budget else None,
         )
+        writing = self._writing_config(config, run)
         synthesis_llm = self._stage_llm(
-            config, "synthesis", False, sink, run_id,
+            writing, "synthesis", False, sink, run_id,
             run_deadline=budget.synthesis_deadline if budget else None,
         )
         repair_llm = self._stage_llm(
-            config, "repair", False, sink, run_id,
+            writing, "repair", False, sink, run_id,
             run_deadline=budget.repair_deadline if budget else None,
         )
         if resume_plan is not None:
@@ -433,6 +460,7 @@ class ResearchService:
         )
         documents = self._documents if run.source_scope.uses_documents else None
         _, structure = resolve_template(run.template, run.custom_template)
+        structure += language_instruction(run.output_language)
 
         memory_report = self._memory_reports.get(run_id)
         if memory_report is None or resume_plan is None:
@@ -462,6 +490,7 @@ class ResearchService:
             deadline=deadline,
             budget=budget,
             memory_context=memory_context,
+            output_language=run.output_language,
         )
         state = initial_state(run.query, config)
         if resume_plan is not None:
@@ -839,6 +868,10 @@ class ResearchService:
                 "Only completed runs with evidence can be regenerated."
             )
         template_id, structure = resolve_template(template, custom_template)
+        # Regeneration keeps the original run's language, whatever the UI shows
+        # now. If the model can no longer write it, refuse rather than downgrade.
+        language = self._languages.require(source.output_language)
+        structure += language_instruction(language)
         run = ResearchRun(
             query=source.query,
             title=source.title,
@@ -850,6 +883,7 @@ class ResearchService:
             custom_template=custom_template if template_id == "CUSTOM" else "",
             use_memory=source.use_memory,
             regenerated_from=source.id,
+            output_language=language,
             plan=source.plan,
             evidence=list(source.evidence),
             executed_queries=list(source.executed_queries),
@@ -859,6 +893,7 @@ class ResearchService:
         self._runs.save(run)
         emitter = RunEmitter(self._bus, run.id)
         config = self._run_config(run)
+        writing = self._writing_config(config, run)
 
         def synthesize_body() -> None:
             with self._state_lock:
@@ -886,16 +921,17 @@ class ResearchService:
             self._call_sinks[run.id] = sink
             self._start_budget(run.id, config)
             synthesizer = SynthesizerAgent(
-                self._stage_llm(config, "synthesis", False, sink, run.id),
+                self._stage_llm(writing, "synthesis", False, sink, run.id),
                 max_evidence=config.max_evidence_for_synthesis,
                 target_words=config.report_target_words,
                 emitter=emitter,
                 structure=structure,
-                repair_llm=self._stage_llm(config, "repair", False, sink, run.id),
+                repair_llm=self._stage_llm(writing, "repair", False, sink, run.id),
                 chars_per_source=config.synthesis_chars_per_source,
                 context_chars=config.synthesis_context_chars,
                 max_words=config.synthesis_max_words,
                 json_mode=config.synthesis_json_mode,
+                output_language=language,
             )
             synth_start = time.perf_counter()
             result = synthesizer(

@@ -17,6 +17,7 @@ import logging
 import re
 
 from src.evaluation.claims import extract_claims
+from src.languages import ENGLISH
 from src.models.memory import FindingSource, MemoryHit, MemoryReport, ProjectFinding
 from src.models.runs import ResearchRun, RunStatus
 from src.persistence.findings import FindingsRepository
@@ -69,6 +70,14 @@ def extract_findings(run: ResearchRun) -> list[ProjectFinding]:
     it came from. Nothing is generated: the text is the report's own.
     """
     if not run.project_id or not run.final_report or not run.selected_sources:
+        return []
+    if run.output_language != ENGLISH:
+        # Deliberately English-only. Claim detection relies on English heuristics,
+        # and a bounded nomic-embed-text diagnostic showed same-script text in
+        # Malayalam/Hindi scores 0.84-0.91 against UNRELATED questions (above the
+        # 0.65 threshold), so storing such findings would leak unrelated memory.
+        # Cross-language recall (English question -> Malayalam finding) was also
+        # unreliable (0.35-0.56). Non-English runs therefore add no findings.
         return []
     claims = extract_claims(unwrap_markdown(run.final_report), len(run.selected_sources))
     findings: list[ProjectFinding] = []

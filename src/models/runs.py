@@ -145,6 +145,10 @@ class ResearchRun(BaseModel):
     custom_template: str = ""
     use_memory: bool = True
     regenerated_from: str = ""
+    #: Language the report is written in (``src.languages``). Fixed when the run
+    #: is created and inherited by regeneration and follow-ups; never derived
+    #: from the UI language. Runs from before this field existed are English.
+    output_language: str = "en"
     status: RunStatus = RunStatus.PENDING
     approval_required: bool = False
     created_at: datetime = Field(default_factory=utcnow)
@@ -175,6 +179,7 @@ class RunSummary(BaseModel):
     source_scope: SourceScope
     project_id: str = ""
     template: str = "STANDARD"
+    output_language: str = "en"
     created_at: datetime
     completed_at: datetime | None = None
     duration_ms: int = 0

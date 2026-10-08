@@ -70,6 +70,7 @@ export function RunTabs({ run, projectName = null }: { run: RunDetail; projectNa
             <div className="report-main">
               <ReportSections
                 markdown={run.final_report}
+                language={run.output_language}
                 sources={run.sources}
                 evidence={run.evidence}
                 loadClaims={loadClaims}

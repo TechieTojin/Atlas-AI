@@ -155,6 +155,12 @@ const messages: PartialMessages = {
       description: 'संरचना के लिए आपके अपने निर्देश (अधिकतम {max} अक्षर)।',
     },
   },
+  outputLanguage: {
+    label: 'अनुसंधान आउटपुट: {language} · {model}',
+    currentModel: 'वर्तमान मॉडल',
+    fallback: 'वर्तमान मॉडल के साथ {preferred} अनुसंधान आउटपुट अभी उपलब्ध नहीं है, इसलिए रिपोर्ट {language} में लिखी जाएँगी।',
+    unavailable: 'आउटपुट भाषाएँ जाँची नहीं जा सकीं, इसलिए रिपोर्ट {language} में लिखी जाएँगी।',
+  },
   research: {
     eyebrow: 'AI-संचालित अनुसंधान',
     tagline: 'बेहतर कल के लिए आपका अनुसंधान साथी',

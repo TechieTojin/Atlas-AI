@@ -155,6 +155,12 @@ const messages: PartialMessages = {
       description: 'നിങ്ങളുടെ സ്വന്തം ഘടനാ നിർദ്ദേശങ്ങൾ (പരമാവധി {max} അക്ഷരങ്ങൾ).',
     },
   },
+  outputLanguage: {
+    label: 'ഗവേഷണ ഔട്ട്പുട്ട്: {language} · {model}',
+    currentModel: 'നിലവിലെ മോഡൽ',
+    fallback: 'നിലവിലെ മോഡലിൽ {preferred} ഗവേഷണ ഔട്ട്പുട്ട് ഇതുവരെ ലഭ്യമല്ല, അതിനാൽ റിപ്പോർട്ടുകൾ {language}-ൽ എഴുതും.',
+    unavailable: 'ഔട്ട്പുട്ട് ഭാഷകൾ പരിശോധിക്കാനായില്ല, അതിനാൽ റിപ്പോർട്ടുകൾ {language}-ൽ എഴുതും.',
+  },
   research: {
     eyebrow: 'AI അധിഷ്ഠിത ഗവേഷണം',
     tagline: 'മികച്ച നാളേക്കായി നിങ്ങളുടെ ഗവേഷണ പങ്കാളി',

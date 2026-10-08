@@ -190,6 +190,13 @@ _MIGRATIONS: list[str] = [
     CREATE INDEX IF NOT EXISTS idx_findings_project ON project_findings(project_id);
     CREATE INDEX IF NOT EXISTS idx_findings_run ON project_findings(run_id);
     """,
+    # v4 — output language of each research run. Every existing run was written
+    # in English, which the column default records; no row data is rewritten.
+    # Follow-ups and comparisons keep their records in JSON documents whose
+    # model default is also English, so they need no schema change.
+    """
+    ALTER TABLE runs ADD COLUMN output_language TEXT NOT NULL DEFAULT 'en';
+    """,
 ]
 
 

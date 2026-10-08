@@ -80,7 +80,8 @@ describe('Research in Malayalam', () => {
     await userEvent.click(screen.getByRole('button', { name: new RegExp(t('queryForm.start')) }))
 
     await waitFor(() => expect(nonGetCalls(fetchMock)).toHaveLength(1))
-    // The UI language never reaches the backend: the request is the pre-multilingual one.
+    // The UI language never reaches the backend. The output language sent is the
+    // effective one: Malayalam generation is not available, so English.
     expect(requestBody(nonGetCalls(fetchMock)[0][1])).toEqual({
       query: 'solar growth',
       mode: 'FAST',
@@ -89,6 +90,7 @@ describe('Research in Malayalam', () => {
       approval_required: false,
       template: 'STANDARD',
       use_memory: true,
+      output_language: 'en',
     })
   })
 })

@@ -155,6 +155,12 @@ const messages: PartialMessages = {
       description: 'Tus propias instrucciones de estructura (máx. {max} caracteres).',
     },
   },
+  outputLanguage: {
+    label: 'Resultado de la investigación: {language} · {model}',
+    currentModel: 'modelo actual',
+    fallback: 'La investigación en {preferred} aún no está disponible con el modelo actual, así que los informes se redactarán en {language}.',
+    unavailable: 'No se pudieron comprobar los idiomas de salida, así que los informes se redactarán en {language}.',
+  },
   research: {
     eyebrow: 'Investigación con IA',
     tagline: 'Tu aliado de investigación para un mañana más inteligente',

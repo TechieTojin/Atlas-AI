@@ -65,6 +65,8 @@ export interface RunSummary {
   duration_ms: number
   project_id: string | null
   template: string
+  /** Language the report is written in; absent from older payloads (English). */
+  output_language?: string
 }
 
 export interface Plan {
@@ -220,6 +222,8 @@ export interface RunDetail {
   custom_template?: string | null
   use_memory?: boolean
   regenerated_from?: string | null
+  /** Language the report is written in; fixed at creation, never the UI language. */
+  output_language?: string
 }
 
 export interface RunEvent {
@@ -355,6 +359,8 @@ export interface FollowUp {
   duration_ms: number
   created_at: string
   completed_at: string | null
+  /** The parent run's language; the answer is written in it. */
+  output_language?: string
 }
 
 export type ComparisonStatus =
@@ -415,6 +421,8 @@ export interface Comparison {
   started_at: string | null
   completed_at: string | null
   metrics: ComparisonMetrics
+  /** Language the comparison is written in; fixed at creation. */
+  output_language?: string
 }
 
 /** A node in the project knowledge graph, derived from stored findings. */
