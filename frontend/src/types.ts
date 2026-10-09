@@ -524,3 +524,96 @@ export const TERMINAL_EVENT_TYPES: EventType[] = [
 export function isActiveStatus(status: RunStatus): boolean {
   return ACTIVE_STATUSES.includes(status)
 }
+
+// --- Website Chat ------------------------------------------------------------
+
+export type WebsiteStatus =
+  | 'PENDING'
+  | 'FETCHING'
+  | 'EXTRACTING'
+  | 'CHUNKING'
+  | 'EMBEDDING'
+  | 'READY'
+  | 'FAILED'
+  | 'CANCELLED'
+
+/** One indexed webpage (never a crawl). */
+export interface WebsiteSource {
+  id: string
+  submitted_url: string
+  normalized_url: string
+  final_url: string
+  page_title: string
+  domain: string
+  status: WebsiteStatus
+  content_hash: string
+  /** Language the page declares (`<html lang>`), '' when absent. */
+  content_language: string
+  word_count: number
+  chunk_count: number
+  index_version: number
+  is_indexed: boolean
+  error: string
+  /** Stable machine code for `error`; the UI translates it. */
+  error_code: string
+  fetched_at: string | null
+  indexed_at: string | null
+  created_at: string
+  updated_at: string
+  metrics: Record<string, unknown>
+  /** Present on create: the URL was already indexed. */
+  existing?: boolean
+}
+
+export interface WebsiteConversation {
+  id: string
+  website_id: string
+  title: string
+  /** Authoritative for every answer; the UI language never changes it. */
+  output_language: string
+  created_at: string
+  updated_at: string
+}
+
+/** One [n] marker, frozen with the exact passage it was based on. */
+export interface WebsiteCitation {
+  index: number
+  chunk_id: string
+  index_version: number
+  chunk_index: number
+  section_title: string
+  heading_path: string[]
+  text: string
+  score: number
+  url: string
+  page_title: string
+}
+
+export type WebsiteMessageStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
+
+/** The real backend step of a PENDING answer ('' = queued / not started). */
+export type WebsiteAnswerStage = '' | 'RETRIEVING' | 'GENERATING' | 'VALIDATING'
+
+export interface WebsiteMessage {
+  id: string
+  conversation_id: string
+  seq: number
+  role: 'user' | 'assistant'
+  content: string
+  status: WebsiteMessageStatus
+  stage?: WebsiteAnswerStage
+  error: string
+  error_code: string
+  insufficient_evidence: boolean
+  citations: WebsiteCitation[]
+  cited: number[]
+  output_language: string
+  metrics: Record<string, unknown>
+  created_at: string
+  completed_at: string | null
+}
+
+export interface WebsiteConversationDetail {
+  conversation: WebsiteConversation
+  messages: WebsiteMessage[]
+}

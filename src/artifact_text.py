@@ -23,6 +23,7 @@ from src.languages import ENGLISH, parse_output_language
 
 _TEXT: dict[str, dict[str, str]] = {
     "en": {
+        "website.insufficient": "The indexed page does not provide enough information to answer this question.",
         "comparison.title": "Comparison",
         "comparison.title_prefix": "Comparison: ",
         "comparison.versus": " vs ",
@@ -61,6 +62,7 @@ _TEXT: dict[str, dict[str, str]] = {
         ),
     },
     "es": {
+        "website.insufficient": "La página indexada no ofrece información suficiente para responder a esta pregunta.",
         "comparison.title": "Comparación",
         "comparison.title_prefix": "Comparación: ",
         "comparison.versus": " frente a ",
@@ -100,6 +102,7 @@ _TEXT: dict[str, dict[str, str]] = {
         ),
     },
     "fr": {
+        "website.insufficient": "La page indexée ne fournit pas assez d’informations pour répondre à cette question.",
         "comparison.title": "Comparaison",
         "comparison.title_prefix": "Comparaison : ",
         "comparison.versus": " contre ",
@@ -138,6 +141,7 @@ _TEXT: dict[str, dict[str, str]] = {
         ),
     },
     "de": {
+        "website.insufficient": "Die indizierte Seite enthält nicht genügend Informationen, um diese Frage zu beantworten.",
         "comparison.title": "Vergleich",
         "comparison.title_prefix": "Vergleich: ",
         "comparison.versus": " vs. ",
@@ -177,6 +181,7 @@ _TEXT: dict[str, dict[str, str]] = {
         ),
     },
     "hi": {
+        "website.insufficient": "अनुक्रमित पृष्ठ में इस प्रश्न का उत्तर देने के लिए पर्याप्त जानकारी नहीं है।",
         "comparison.title": "तुलना",
         "comparison.title_prefix": "तुलना: ",
         "comparison.versus": " बनाम ",
@@ -210,6 +215,7 @@ _TEXT: dict[str, dict[str, str]] = {
         "fallback.none": "एकत्र स्रोतों से कोई दावा-युक्त अंश नहीं निकाला जा सका; नीचे स्रोत सूची देखें।",
     },
     "ml": {
+        "website.insufficient": "ഈ ചോദ്യത്തിന് ഉത്തരം നൽകാൻ ആവശ്യമായ വിവരങ്ങൾ ഇൻഡക്സ് ചെയ്ത പേജിൽ ഇല്ല.",
         "comparison.title": "താരതമ്യം",
         "comparison.title_prefix": "താരതമ്യം: ",
         "comparison.versus": " vs ",

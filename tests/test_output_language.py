@@ -315,7 +315,10 @@ def test_migration_marks_existing_runs_english_and_keeps_their_data(tmp_path):
     before = conn.execute("SELECT data FROM runs WHERE id = ?", (old.id,)).fetchone()[0]
     # Roll the schema back to v3 by removing the column, as an older Atlas had it.
     conn.executescript(
-        "ALTER TABLE runs DROP COLUMN output_language; DELETE FROM schema_version WHERE version = 4;"
+        "ALTER TABLE runs DROP COLUMN output_language; DELETE FROM schema_version WHERE version >= 4;"
+        # Later migrations (v5 Website Chat) did not exist in a v3 database either.
+        "DROP TABLE website_messages; DROP TABLE website_conversations;"
+        "DROP TABLE website_chunks; DROP TABLE websites;"
     )
     conn.commit()
     conn.close()
@@ -326,7 +329,9 @@ def test_migration_marks_existing_runs_english_and_keeps_their_data(tmp_path):
     assert run.final_report == "Old report [1]."
     conn = sqlite3.connect(path)
     assert conn.execute("SELECT data FROM runs WHERE id = ?", (old.id,)).fetchone()[0] == before
-    assert conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 4
+    from src.persistence.db import _MIGRATIONS
+
+    assert conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == len(_MIGRATIONS)
     conn.close()
     Database(path)  # idempotent: a second open applies nothing and does not fail
 

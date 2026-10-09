@@ -28,7 +28,11 @@ from src.api.schemas import (
     RunDetailResponse,
     RunListResponse,
     UpdateProjectRequest,
+    CreateWebsiteConversationRequest,
+    CreateWebsiteRequest,
+    WebsiteQuestionRequest,
 )
+from src.website.errors import WebsiteError
 from src.config import ConfigError
 from src.languages import UnknownLanguageError
 from src.model_capabilities import UnsupportedOutputLanguageError
@@ -61,6 +65,7 @@ def create_app(container: Container | None = None) -> FastAPI:
         # otherwise show "Planning…" forever.
         app_.state.container.research_service.recover_interrupted_runs()
         app_.state.container.comparison_service.recover_interrupted_comparisons()
+        app_.state.container.website_chat_service.recover_interrupted()
         # Makes research completed before project memory existed reusable.
         app_.state.container.research_service.backfill_project_memory()
         yield
@@ -128,6 +133,13 @@ def create_app(container: Container | None = None) -> FastAPI:
         if "already running" in message:
             return JSONResponse(status_code=409, content={"detail": message})
         return _domain_404_or_422(exc)
+
+    @app.exception_handler(WebsiteError)
+    def website_error(request, exc):
+        # A stable code the UI translates, plus plain English for API clients.
+        return JSONResponse(
+            status_code=exc.http_status, content={"detail": exc.message, "code": exc.code}
+        )
 
     @app.exception_handler(UnknownLanguageError)
     def unknown_language(request, exc):
@@ -552,6 +564,76 @@ def create_app(container: Container | None = None) -> FastAPI:
         c = ctn(request)
         c.research_service.get_run(run_id)
         return _sse_stream(c, f"kg-{run_id}")
+
+    # -- website chat -----------------------------------------------------------
+
+    def _website_json(site):
+        data = site.model_dump(mode="json")
+        data["is_indexed"] = site.is_indexed
+        return data
+
+    @app.post("/api/websites")
+    def create_website(request: Request, body: CreateWebsiteRequest):
+        site, created = ctn(request).website_chat_service.submit(body.url)
+        return JSONResponse(
+            status_code=201 if created else 200,
+            content={**_website_json(site), "existing": not created},
+        )
+
+    @app.get("/api/websites")
+    def list_websites(request: Request):
+        return {"websites": [_website_json(w) for w in ctn(request).website_chat_service.list()]}
+
+    @app.get("/api/websites/{website_id}")
+    def get_website(request: Request, website_id: str):
+        return _website_json(ctn(request).website_chat_service.get(website_id))
+
+    @app.post("/api/websites/{website_id}/refresh")
+    def refresh_website(request: Request, website_id: str):
+        return _website_json(ctn(request).website_chat_service.refresh(website_id))
+
+    @app.post("/api/websites/{website_id}/cancel")
+    def cancel_website(request: Request, website_id: str):
+        return _website_json(ctn(request).website_chat_service.cancel(website_id))
+
+    @app.delete("/api/websites/{website_id}", status_code=204)
+    def delete_website(request: Request, website_id: str):
+        ctn(request).website_chat_service.delete(website_id)
+
+    @app.get("/api/websites/{website_id}/conversations")
+    def list_website_conversations(request: Request, website_id: str):
+        conversations = ctn(request).website_chat_service.list_conversations(website_id)
+        return {"conversations": [c.model_dump(mode="json") for c in conversations]}
+
+    @app.post("/api/websites/{website_id}/conversations", status_code=201)
+    def create_website_conversation(
+        request: Request, website_id: str, body: CreateWebsiteConversationRequest
+    ):
+        conversation = ctn(request).website_chat_service.create_conversation(
+            website_id, body.output_language
+        )
+        return {"conversation": conversation.model_dump(mode="json"), "messages": []}
+
+    @app.get("/api/website-conversations/{conversation_id}")
+    def get_website_conversation(request: Request, conversation_id: str):
+        conversation, messages = ctn(request).website_chat_service.get_conversation(conversation_id)
+        return {
+            "conversation": conversation.model_dump(mode="json"),
+            "messages": [m.model_dump(mode="json") for m in messages],
+        }
+
+    @app.delete("/api/website-conversations/{conversation_id}", status_code=204)
+    def delete_website_conversation(request: Request, conversation_id: str):
+        ctn(request).website_chat_service.delete_conversation(conversation_id)
+
+    @app.post("/api/website-conversations/{conversation_id}/messages", status_code=202)
+    def ask_website(request: Request, conversation_id: str, body: WebsiteQuestionRequest):
+        user, answer = ctn(request).website_chat_service.ask(conversation_id, body.question)
+        return {"user": user.model_dump(mode="json"), "answer": answer.model_dump(mode="json")}
+
+    @app.post("/api/website-messages/{message_id}/cancel")
+    def cancel_website_message(request: Request, message_id: str):
+        return ctn(request).website_chat_service.cancel_message(message_id).model_dump(mode="json")
 
     # -- documents ------------------------------------------------------------
 

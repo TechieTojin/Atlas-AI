@@ -74,6 +74,13 @@ DEFAULT_PROJECT_MEMORY_ITEMS = 4
 # this, the stage had neither, and a single comparison ran past 20 minutes.
 DEFAULT_COMPARISON_MAX_TOKENS = 900
 DEFAULT_COMPARISON_TIMEOUT_SECONDS = 750
+# Website Chat: grounded answers are short; the deadline covers the slower
+# multilingual routes (gemma4:e4b writes ~3.4 tokens/s on CPU).
+DEFAULT_WEBSITE_CHAT_MAX_TOKENS = 700
+#: Whole-answer deadline (all attempts); 360 s is also the hard ceiling.
+DEFAULT_WEBSITE_CHAT_TIMEOUT_SECONDS = 360
+DEFAULT_WEBSITE_MAX_BYTES = 3_000_000
+DEFAULT_WEBSITE_MAX_CHUNKS = 300
 
 DEFAULT_KG_MAX_NODES = 40
 DEFAULT_KG_MAX_EDGES = 60
@@ -176,6 +183,10 @@ class AtlasConfig:
     project_memory_items: int = DEFAULT_PROJECT_MEMORY_ITEMS
     comparison_max_tokens: int = DEFAULT_COMPARISON_MAX_TOKENS
     comparison_timeout_seconds: int = DEFAULT_COMPARISON_TIMEOUT_SECONDS
+    website_chat_max_tokens: int = DEFAULT_WEBSITE_CHAT_MAX_TOKENS
+    website_chat_timeout_seconds: int = DEFAULT_WEBSITE_CHAT_TIMEOUT_SECONDS
+    website_max_bytes: int = DEFAULT_WEBSITE_MAX_BYTES
+    website_max_chunks: int = DEFAULT_WEBSITE_MAX_CHUNKS
     kg_max_nodes: int = DEFAULT_KG_MAX_NODES
     kg_max_edges: int = DEFAULT_KG_MAX_EDGES
     pdf_font_path: str = ""
@@ -314,6 +325,14 @@ def load_config(dotenv_path: str | None = None) -> AtlasConfig:
         comparison_timeout_seconds=_int_env(
             "ATLAS_COMPARISON_TIMEOUT_SECONDS", DEFAULT_COMPARISON_TIMEOUT_SECONDS
         ),
+        website_chat_max_tokens=_int_env(
+            "ATLAS_WEBSITE_CHAT_MAX_TOKENS", DEFAULT_WEBSITE_CHAT_MAX_TOKENS
+        ),
+        website_chat_timeout_seconds=_int_env(
+            "ATLAS_WEBSITE_CHAT_TIMEOUT_SECONDS", DEFAULT_WEBSITE_CHAT_TIMEOUT_SECONDS
+        ),
+        website_max_bytes=_int_env("ATLAS_WEBSITE_MAX_BYTES", DEFAULT_WEBSITE_MAX_BYTES),
+        website_max_chunks=_int_env("ATLAS_WEBSITE_MAX_CHUNKS", DEFAULT_WEBSITE_MAX_CHUNKS),
         kg_max_nodes=_int_env("ATLAS_KG_MAX_NODES", DEFAULT_KG_MAX_NODES),
         kg_max_edges=_int_env("ATLAS_KG_MAX_EDGES", DEFAULT_KG_MAX_EDGES),
         pdf_font_path=os.getenv("ATLAS_PDF_FONT", "").strip(),

@@ -17,16 +17,23 @@ import type {
   RunSummary,
   SourceScope,
   TemplateInfo,
+  WebsiteConversation,
+  WebsiteConversationDetail,
+  WebsiteMessage,
+  WebsiteSource,
 } from '../types'
 import { activeTranslator } from '../i18n/labels'
 
 export class ApiError extends Error {
   readonly status: number
+  /** Stable machine code from the backend, when it sends one. */
+  readonly code: string
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code = '') {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.code = code
   }
 }
 
@@ -44,16 +51,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     // A backend `detail` is shown as sent: it is server prose, not a UI string.
     let message = t()('errors.requestFailed', { status: res.status })
+    let code = ''
     try {
       const body: unknown = await res.json()
       if (body && typeof body === 'object' && 'detail' in body) {
         const detail = (body as { detail: unknown }).detail
         message = typeof detail === 'string' ? detail : JSON.stringify(detail)
       }
+      if (body && typeof body === 'object' && typeof (body as { code?: unknown }).code === 'string') {
+        code = (body as { code: string }).code
+      }
     } catch {
       // keep the default message
     }
-    throw new ApiError(message, res.status)
+    throw new ApiError(message, res.status, code)
   }
   if (res.status === 204) {
     return undefined as T
@@ -96,7 +107,7 @@ export interface LanguageCapability {
   features?: Partial<Record<OutputFeature, { status?: string; supported: boolean; reason: string }>>
 }
 
-export type OutputFeature = 'report' | 'followup' | 'comparison'
+export type OutputFeature = 'report' | 'followup' | 'comparison' | 'website_chat'
 
 export interface LanguageCapabilities {
   default_output_language: string
@@ -149,6 +160,32 @@ export interface CreateComparisonRequest {
 
 export const api = {
   health: () => request<HealthResponse>('/health'),
+
+  // Website Chat
+  createWebsite: (url: string) => request<WebsiteSource>('/websites', jsonInit('POST', { url })),
+  listWebsites: () => request<{ websites: WebsiteSource[] }>('/websites'),
+  getWebsite: (id: string) => request<WebsiteSource>(`/websites/${id}`),
+  refreshWebsite: (id: string) => request<WebsiteSource>(`/websites/${id}/refresh`, { method: 'POST' }),
+  cancelWebsite: (id: string) => request<WebsiteSource>(`/websites/${id}/cancel`, { method: 'POST' }),
+  deleteWebsite: (id: string) => request<void>(`/websites/${id}`, { method: 'DELETE' }),
+  listWebsiteConversations: (id: string) =>
+    request<{ conversations: WebsiteConversation[] }>(`/websites/${id}/conversations`),
+  createWebsiteConversation: (id: string, outputLanguage: string) =>
+    request<WebsiteConversationDetail>(
+      `/websites/${id}/conversations`,
+      jsonInit('POST', { output_language: outputLanguage }),
+    ),
+  getWebsiteConversation: (id: string) =>
+    request<WebsiteConversationDetail>(`/website-conversations/${id}`),
+  deleteWebsiteConversation: (id: string) =>
+    request<void>(`/website-conversations/${id}`, { method: 'DELETE' }),
+  askWebsite: (conversationId: string, question: string) =>
+    request<{ user: WebsiteMessage; answer: WebsiteMessage }>(
+      `/website-conversations/${conversationId}/messages`,
+      jsonInit('POST', { question }),
+    ),
+  cancelWebsiteMessage: (id: string) =>
+    request<WebsiteMessage>(`/website-messages/${id}/cancel`, { method: 'POST' }),
 
   createRun: (body: CreateRunRequest) => request<RunDetail>('/runs', jsonInit('POST', body)),
 

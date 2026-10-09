@@ -5,7 +5,10 @@ export interface MockResponseSpec {
   body?: unknown
 }
 
-export type FetchHandler = (url: string, init?: RequestInit) => MockResponseSpec | undefined
+export type FetchHandler = (
+  url: string,
+  init?: RequestInit,
+) => MockResponseSpec | undefined | Promise<MockResponseSpec | undefined>
 
 /**
  * Installs a fetch mock whose behavior is defined by a simple handler
@@ -19,7 +22,8 @@ export function installFetchMock(handler: FetchHandler) {
         : input instanceof URL
           ? input.toString()
           : input.url
-    const spec = handler(url, init)
+    // A handler may return a promise to hold a response (e.g. a slow POST).
+    const spec = await handler(url, init)
     if (!spec) {
       throw new Error(`No fetch mock registered for ${init?.method ?? 'GET'} ${url}`)
     }

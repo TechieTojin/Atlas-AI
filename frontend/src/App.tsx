@@ -9,6 +9,7 @@ import { ComparisonPage } from './pages/ComparisonPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { ProjectPage } from './pages/ProjectPage'
 import { ProjectsPage } from './pages/ProjectsPage'
+import { WebsiteChatPage } from './pages/WebsiteChatPage'
 import { ResearchPage } from './pages/ResearchPage'
 import { RunPage } from './pages/RunPage'
 
@@ -55,6 +56,8 @@ export default function App() {
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/projects/:id" element={<ProjectPage />} />
               <Route path="/comparisons/:id" element={<ComparisonPage />} />
+              <Route path="/websites" element={<WebsiteChatPage />} />
+              <Route path="/websites/:id" element={<WebsiteChatPage />} />
               <Route
                 path="*"
                 element={

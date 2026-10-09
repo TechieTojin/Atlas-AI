@@ -47,6 +47,19 @@ class UpdateProjectRequest(BaseModel):
     description: str | None = Field(default=None, max_length=2000)
 
 
+class CreateWebsiteRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=2048)
+
+
+class CreateWebsiteConversationRequest(BaseModel):
+    #: Resolved, supported output language; omitted means English.
+    output_language: str | None = None
+
+
+class WebsiteQuestionRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+
+
 class CreateFollowUpRequest(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
     mode: str = "auto"  # auto | analytical | research

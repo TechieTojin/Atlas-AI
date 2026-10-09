@@ -17,6 +17,7 @@ from src.persistence import (
     RunsRepository,
 )
 from src.persistence.findings import FindingsRepository
+from src.persistence.websites import WebsitesRepository
 from src.persistence.workspace import (
     ComparisonsRepository,
     FollowUpsRepository,
@@ -31,6 +32,7 @@ from src.services.kg_service import KGService
 from src.services.overview_service import ProjectOverviewService
 from src.services.project_graph import ProjectGraphService
 from src.services.research_service import ResearchService
+from src.services.website_chat_service import WebsiteChatService
 
 
 class Container:
@@ -46,6 +48,7 @@ class Container:
         search_factory=None,
         executor: Executor | None = None,
         page_fetcher_factory=None,
+        website_fetcher=None,
     ) -> None:
         self.config = config or load_config()
         self.db = Database(db_path or self.config.database_path)
@@ -58,6 +61,7 @@ class Container:
         self.comparisons_repo = ComparisonsRepository(self.db)
         self.kg_repo = KGRepository(self.db)
         self.findings_repo = FindingsRepository(self.db)
+        self.websites_repo = WebsitesRepository(self.db)
         self.bus = RunEventBus()
         # One router decides language -> model and capability for every
         # generating service, so they can never disagree.
@@ -137,4 +141,22 @@ class Container:
             self.bus,
             llm_factory=shared_llm,
             executor=shared_executor,
+        )
+        # Website Chat shares the embedder, LLM factory and language router,
+        # but has its own small worker pool so indexing a page never queues
+        # behind long research runs. Ingestion itself never calls an LLM.
+        if executor is None:
+            from concurrent.futures import ThreadPoolExecutor
+
+            website_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="atlas-website")
+        else:
+            website_executor = executor
+        self.website_chat_service = WebsiteChatService(
+            self.config,
+            self.websites_repo,
+            embed_fn=embed_fn,
+            llm_factory=shared_llm,
+            executor=website_executor,
+            languages=self.languages,
+            fetcher=website_fetcher,
         )

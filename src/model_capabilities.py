@@ -23,7 +23,12 @@ from src.languages import ENGLISH, OUTPUT_LANGUAGE_CODES, OUTPUT_LANGUAGES, pars
 
 #: Kinds of generated artifact. A language can pass for one and fail another:
 #: comparisons are structured, attribution-checked output and are harder.
-FEATURES = ("report", "followup", "comparison")
+FEATURES = ("report", "followup", "comparison", "website_chat")
+
+#: Features that never inherit a language's report verdict: each needs its own
+#: validation, recorded in ``_FEATURE_VERDICTS``. Until then a non-English
+#: language is UNVALIDATED for the feature (English is never gated).
+OWN_VALIDATION_FEATURES = frozenset({"website_chat"})
 
 SUPPORTED = "supported"
 UNSUPPORTED = "unsupported"
@@ -148,6 +153,25 @@ _FEATURE_VERDICTS: dict[tuple[str, str, str], tuple[str, str]] = {
         )
         for code in ("hi", "es", "de")
     },
+    # Website Chat is validated on its own (OWN_VALIDATION_FEATURES): live pages,
+    # real nomic retrieval and the routed model, every answer checked against the
+    # cited passage.
+    ("qwen3:4b", "es", "website_chat"): (
+        SUPPORTED,
+        "Validated on a live Spanish page: answers in Spanish, cited and correct, "
+        "and an absent fact was refused (about 100 s per answer).",
+    ),
+    ("gemma4:e4b", "hi", "website_chat"): (
+        LIMITED,
+        "Speed: about 3 minutes per answer on this CPU. Validated on a Hindi page and "
+        "on an English page (Hindi answer, original English evidence).",
+    ),
+    ("gemma4:e4b", "de", "website_chat"): (
+        LIMITED,
+        "Speed: about 3.5 minutes per answer on this CPU. Retrieval for a German "
+        "question on a non-German page can miss the relevant section; answers stay "
+        "grounded in the passages found.",
+    ),
 }
 
 _BUDGETS: dict[tuple[str, str, str], dict[str, int]] = {
@@ -202,7 +226,14 @@ class LanguageRouter:
         model = self.model_for(language)
         status, reason = _verdict(model, language)
         if status in (SUPPORTED, LIMITED) and language != ENGLISH:
-            status, reason = _FEATURE_VERDICTS.get((model, language, feature), (status, reason))
+            default = (status, reason)
+            if feature in OWN_VALIDATION_FEATURES:
+                default = (
+                    UNVALIDATED,
+                    f"{OUTPUT_LANGUAGES[language].english_name} {feature.replace('_', ' ')} has not "
+                    f"been validated for {model}.",
+                )
+            status, reason = _FEATURE_VERDICTS.get((model, language, feature), default)
         return LanguageCapability(language=language, model=model, status=status, reason=reason, feature=feature)
 
     def budget_overrides(self, language: str, mode: str) -> dict[str, int]:

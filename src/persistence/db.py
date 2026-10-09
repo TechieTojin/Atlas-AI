@@ -197,6 +197,73 @@ _MIGRATIONS: list[str] = [
     """
     ALTER TABLE runs ADD COLUMN output_language TEXT NOT NULL DEFAULT 'en';
     """,
+    # v5 — Website Chat: one indexed webpage per row, its versioned chunks
+    # (with embeddings), and grounded conversations about it. Additive only.
+    # Children cascade on delete; the repository also deletes them
+    # explicitly inside one transaction.
+    """
+    CREATE TABLE IF NOT EXISTS websites (
+        id TEXT PRIMARY KEY,
+        submitted_url TEXT NOT NULL,
+        normalized_url TEXT NOT NULL UNIQUE,
+        final_url TEXT NOT NULL DEFAULT '',
+        page_title TEXT NOT NULL DEFAULT '',
+        domain TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL,
+        content_hash TEXT NOT NULL DEFAULT '',
+        content_language TEXT NOT NULL DEFAULT '',
+        word_count INTEGER NOT NULL DEFAULT 0,
+        chunk_count INTEGER NOT NULL DEFAULT 0,
+        index_version INTEGER NOT NULL DEFAULT 0,
+        error TEXT NOT NULL DEFAULT '',
+        error_code TEXT NOT NULL DEFAULT '',
+        fetched_at TEXT,
+        indexed_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        metrics TEXT NOT NULL DEFAULT '{}'
+    );
+    CREATE INDEX IF NOT EXISTS idx_websites_updated ON websites(updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS website_chunks (
+        id TEXT PRIMARY KEY,
+        website_id TEXT NOT NULL REFERENCES websites(id) ON DELETE CASCADE,
+        index_version INTEGER NOT NULL,
+        chunk_index INTEGER NOT NULL,
+        section_title TEXT NOT NULL DEFAULT '',
+        heading_path TEXT NOT NULL DEFAULT '[]',
+        text TEXT NOT NULL,
+        char_start INTEGER NOT NULL DEFAULT 0,
+        char_end INTEGER NOT NULL DEFAULT 0,
+        embedding BLOB,
+        UNIQUE (website_id, index_version, chunk_index)
+    );
+    CREATE INDEX IF NOT EXISTS idx_website_chunks_site
+        ON website_chunks(website_id, index_version);
+
+    CREATE TABLE IF NOT EXISTS website_conversations (
+        id TEXT PRIMARY KEY,
+        website_id TEXT NOT NULL REFERENCES websites(id) ON DELETE CASCADE,
+        title TEXT NOT NULL DEFAULT '',
+        output_language TEXT NOT NULL DEFAULT 'en',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_website_conversations_site
+        ON website_conversations(website_id, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS website_messages (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL
+            REFERENCES website_conversations(id) ON DELETE CASCADE,
+        seq INTEGER NOT NULL,
+        role TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        data TEXT NOT NULL DEFAULT '{}',
+        UNIQUE (conversation_id, seq)
+    );
+    """,
 ]
 
 
