@@ -29,3 +29,28 @@ frontend/coverage/
 .idea/
 .vscode/
 .DS_Store
+
+# Databases (any engine/extension) and local model files
+*.sqlite
+*.sqlite3
+*.gguf
+*.safetensors
+
+# Dependencies, build and test output anywhere in the tree
+node_modules/
+.vite/
+coverage/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.swp
+*~
+
+# OS files
+Thumbs.db
+desktop.ini
