@@ -32,6 +32,17 @@ class CreateRunRequest(BaseModel):
     output_language: str | None = None
 
 
+class CreateBranchRequest(BaseModel):
+    """Branch a NEW research run from one node of a run's Research Map."""
+
+    node_id: str = Field(min_length=1, max_length=200)
+    #: The user's follow-up research question (this becomes the child's query).
+    instruction: str = Field(min_length=1, max_length=2000)
+    mode: RunMode = RunMode.FAST
+    source_scope: SourceScope | None = None
+    output_language: str | None = None
+
+
 class RegenerateRequest(BaseModel):
     template: str
     custom_template: str = Field(default="", max_length=4000)
@@ -49,6 +60,14 @@ class UpdateProjectRequest(BaseModel):
 
 class CreateWebsiteRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
+    #: "SINGLE" (default, exactly V1) or "SITE" (bounded selected pages).
+    mode: str = Field(default="SINGLE", pattern="^(SINGLE|SITE)$")
+    #: SITE mode only: the user-selected page URLs from discovery.
+    page_urls: list[str] = Field(default_factory=list, max_length=200)
+
+
+class DiscoverWebsiteRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=2048)
 
 
 class CreateWebsiteConversationRequest(BaseModel):
@@ -58,6 +77,38 @@ class CreateWebsiteConversationRequest(BaseModel):
 
 class WebsiteQuestionRequest(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
+
+
+class CreateDocumentConversationRequest(BaseModel):
+    document_ids: list[str] = Field(min_length=1, max_length=50)
+    #: Resolved, supported output language; omitted means English.
+    output_language: str | None = None
+
+
+class DocumentQuestionRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+
+
+class CreateCollectionRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=160)
+    description: str = Field(default="", max_length=2000)
+    project_id: str = ""
+
+
+class UpdateCollectionRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=160)
+    description: str | None = Field(default=None, max_length=2000)
+
+
+class AddCollectionItemRequest(BaseModel):
+    type: str = Field(pattern="^(run|source|evidence|document|document_passage|website_passage|note)$")
+    note: str = Field(default="", max_length=4000)
+    #: Frozen snapshot + origin reference, built by the UI from loaded truth.
+    data: dict = Field(default_factory=dict)
+
+
+class UpdateCollectionItemRequest(BaseModel):
+    note: str = Field(max_length=4000)
 
 
 class CreateFollowUpRequest(BaseModel):
@@ -152,6 +203,8 @@ class RunDetailResponse(BaseModel):
     document_ids: list[str]
     metrics: RunMetrics
     evaluation: EvaluationResult | None
+    #: Set when this run was branched from another run's Research Map.
+    branch: dict | None = None
 
     @classmethod
     def from_run(cls, run: ResearchRun) -> "RunDetailResponse":
@@ -221,6 +274,7 @@ class RunDetailResponse(BaseModel):
             document_ids=run.document_ids,
             metrics=run.metrics,
             evaluation=run.evaluation,
+            branch=run.branch.model_dump(mode="json") if run.branch else None,
         )
 
 

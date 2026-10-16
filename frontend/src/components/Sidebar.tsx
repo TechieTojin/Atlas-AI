@@ -13,6 +13,7 @@ import {
   FileTextIcon,
   FolderIcon,
   GlobeIcon,
+  NotebookIcon,
   MoonIcon,
   SearchIcon,
   SparklesIcon,
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { to: '/projects', labelKey: 'nav.projects', icon: FolderIcon, end: false },
   { to: '/documents', labelKey: 'nav.documents', icon: FileTextIcon, end: false },
   { to: '/websites', labelKey: 'nav.websiteChat', icon: GlobeIcon, end: false },
+  { to: '/collections', labelKey: 'nav.collections', icon: NotebookIcon, end: false },
 ] as const
 
 function HistoryRowBody({ run }: { run: RunSummary }) {

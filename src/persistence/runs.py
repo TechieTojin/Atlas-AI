@@ -94,6 +94,22 @@ class RunsRepository:
         finally:
             self._db.release(conn)
 
+    def list_children(self, parent_run_id: str) -> list[ResearchRun]:
+        """Runs branched from ``parent_run_id`` (oldest first)."""
+        conn = self._db.connect()
+        try:
+            rows = conn.execute(
+                "SELECT id FROM runs WHERE json_extract(data, '$.branch.parent_run_id') = ? "
+                "ORDER BY created_at, id",
+                (parent_run_id,),
+            ).fetchall()
+        except sqlite3.Error as exc:
+            raise PersistenceError(f"Failed to list branches: {exc}") from exc
+        finally:
+            self._db.release(conn)
+        children = [self.get(row[0]) for row in rows]
+        return [run for run in children if run is not None]
+
     def get(self, run_id: str) -> ResearchRun | None:
         conn = self._db.connect()
         try:

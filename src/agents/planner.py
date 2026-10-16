@@ -21,6 +21,7 @@ from src.events import EventType, NullEmitter
 from src.graph.state import AtlasState
 from src.models.research import ResearchPlan, ResearchTask
 from src.prompts.research import (
+    PLANNER_BRANCH_NOTE,
     PLANNER_MEMORY_NOTE,
     PLANNER_REPAIR_USER,
     PLANNER_SYSTEM,
@@ -86,6 +87,8 @@ class PlannerAgent:
         max_tasks: int = 0,
         memory_context: str = "",
         output_language: str = "en",
+        branch_context: str = "",
+        branch_label: str = "",
     ) -> None:
         self._planner = llm.with_structured_output(ResearchPlan)
         self._max_queries = max_queries
@@ -93,6 +96,9 @@ class PlannerAgent:
         # Findings previous runs in this project already established; the
         # planner targets the gaps instead of re-confirming them.
         self._memory_context = memory_context
+        # Branched runs: the parent material the user chose to explore further.
+        self._branch_context = branch_context
+        self._branch_label = branch_label
         # User-visible plan text in the run's language; queries stay retrieval-first.
         from src.languages import plan_language_instruction
 
@@ -115,6 +121,10 @@ class PlannerAgent:
             )
         else:
             user = PLANNER_USER.format(question=question)
+            if self._branch_context:
+                user += PLANNER_BRANCH_NOTE.format(
+                    branch=self._branch_context, branch_label=self._branch_label or "selection"
+                )
             if self._memory_context:
                 user += PLANNER_MEMORY_NOTE.format(memory=self._memory_context)
         plan: ResearchPlan = self._planner.invoke(

@@ -1,8 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Route, Routes } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LanguageCapabilities } from '../api/client'
-import { languageName, loadMessages, resetLanguageCapabilities } from '../i18n'
+import { languageName, loadMessages, resetLanguageCapabilities, type Translate } from '../i18n'
 import { makePreference, writePreference } from '../i18n/preference'
 import { installFetchMock, requestBody } from '../test/mockFetch'
 import { renderWithLocale } from '../test/renderWithLocale'
@@ -13,6 +14,8 @@ import { formatElapsed, WebsiteChatPage } from './WebsiteChatPage'
 function site(overrides: Partial<WebsiteSource> = {}): WebsiteSource {
   return {
     id: 'site-1',
+    mode: 'SINGLE',
+    page_count: 0,
     submitted_url: 'https://example.com/report',
     normalized_url: 'https://example.com/report',
     final_url: 'https://example.com/report',
@@ -560,5 +563,294 @@ describe('formatElapsed', () => {
     [-500, '00:00'],
   ])('%i ms is %s', (ms, text) => {
     expect(formatElapsed(ms)).toBe(text)
+  })
+})
+
+describe('Website Chat — multi-page (SITE) mode', () => {
+  const DISCOVERY = {
+    root_url: 'https://docs.example/guide',
+    root_title: 'Guide',
+    pages: [
+      { url: 'https://docs.example/guide', title: 'Guide', found_via: 'root' },
+      { url: 'https://docs.example/guide/setup', title: 'Setup', found_via: 'link' },
+      { url: 'https://docs.example/guide/usage', title: 'Usage', found_via: 'sitemap' },
+    ],
+    skipped: { offsite_or_unsupported: 3 },
+    robots_applied: true,
+    max_pages: 20,
+  }
+
+  function siteBackend() {
+    const siteSite = site({ id: 'site-9', mode: 'SITE', page_count: 2, chunk_count: 9 })
+    const mock = installFetchMock((url, init) => {
+      const method = init?.method ?? 'GET'
+      if (url === '/api/capabilities/languages') return { body: capabilities({}) }
+      if (url === '/api/websites' && method === 'GET') return { body: { websites: [] } }
+      if (url === '/api/websites/discover' && method === 'POST') return { body: DISCOVERY }
+      if (url === '/api/websites' && method === 'POST') return { status: 201, body: siteSite }
+      if (url === '/api/websites/site-9' && method === 'GET') return { body: siteSite }
+      if (url === '/api/websites/site-9/pages')
+        return {
+          body: {
+            pages: [
+              { id: 'p1', website_id: 'site-9', index_version: 1, position: 0, url: 'https://docs.example/guide', final_url: 'https://docs.example/guide', title: 'Guide', status: 'INDEXED', error: '', error_code: '', content_language: 'en', word_count: 400, chunk_count: 4, fetched_at: null },
+              { id: 'p2', website_id: 'site-9', index_version: 1, position: 1, url: 'https://docs.example/guide/setup', final_url: 'https://docs.example/guide/setup', title: 'Setup', status: 'FAILED', error: 'HTTP 404', error_code: 'http_error', content_language: '', word_count: 0, chunk_count: 0, fetched_at: null },
+            ],
+          },
+        }
+      if (url === '/api/websites/site-9/conversations' && method === 'GET') return { body: { conversations: [] } }
+      return undefined
+    })
+    return { mock }
+  }
+
+  it('discovers pages, lets the user select, and indexes the selection', async () => {
+    const user = userEvent.setup()
+    const { mock } = siteBackend()
+    const { t } = await renderWithLocale(<WebsiteChatPage />, { route: '/websites', path: '/websites' })
+    await screen.findByLabelText(t('websiteChat.urlLabel'))
+    await user.click(screen.getByRole('radio', { name: t('websiteChat.modeSite') }))
+    await user.type(screen.getByPlaceholderText(t('websiteChat.urlPlaceholder')), 'https://docs.example/guide')
+    await user.click(screen.getByRole('button', { name: t('websiteChat.discover') }))
+
+    expect(await screen.findByText(t('websiteChat.discovery.title'))).toBeInTheDocument()
+    expect(screen.getByText(/Setup/)).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(t('websiteChat.discovery.robots')))).toBeInTheDocument()
+    const rootBox = screen.getByRole('checkbox', { name: new RegExp(t('websiteChat.discovery.root')) })
+    expect(rootBox).toBeChecked()
+    expect(rootBox).toBeDisabled() // the start page always stays included
+    // Deselect one page, then index.
+    await user.click(screen.getByRole('checkbox', { name: /Usage/ }))
+    await user.click(screen.getByRole('button', { name: t('websiteChat.discovery.index') }))
+    const created = mock.mock.calls.find(
+      ([url, init]) => url === '/api/websites' && (init as RequestInit)?.method === 'POST',
+    )
+    expect(requestBody(created?.[1] as RequestInit)).toEqual({
+      url: 'https://docs.example/guide',
+      mode: 'SITE',
+      page_urls: ['https://docs.example/guide', 'https://docs.example/guide/setup'],
+    })
+  })
+
+  it('shows per-page results honestly, including failed pages', async () => {
+    const user = userEvent.setup()
+    siteBackend()
+    const { t } = await renderWithLocale(<WebsiteChatPage />, {
+      route: '/websites/site-9',
+      path: '/websites/:id',
+    })
+    const toggle = await screen.findByRole('button', { name: new RegExp(t('websiteChat.pages.title')) })
+    expect(toggle).toHaveTextContent(t('websiteChat.pages.summary', { indexed: '1', total: '2' }))
+    await user.click(toggle)
+    expect(screen.getByText('Guide')).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(t('websiteChat.pages.failed')))).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(t('websiteChat.errors.http_error')))).toBeInTheDocument()
+  })
+
+  it('citation drawers show the exact page a passage came from', async () => {
+    const user = userEvent.setup()
+    const pageCitation = {
+      ...CITATION,
+      url: 'https://docs.example/guide/usage',
+      page_title: 'Usage',
+      section_title: 'Capacity',
+    }
+    const asked = message({ id: 'q9', seq: 1, role: 'user', content: 'capacity?' })
+    const replied = message({
+      id: 'a9', seq: 2,
+      content: 'It retains 93% capacity [1].',
+      citations: [pageCitation],
+      cited: [1],
+    })
+    backend({
+      onAsk: (state) => {
+        state.messages = [asked, replied]
+        return { status: 202, body: { user: asked, answer: replied } }
+      },
+    })
+    const { t } = await renderWithLocale(<WebsiteChatPage />, detail)
+    const composer = await screen.findByLabelText(t('websiteChat.composerLabel'), { selector: 'textarea' })
+    await user.type(composer, 'capacity?')
+    await user.click(screen.getByRole('button', { name: t('websiteChat.send') }))
+    await user.click(await screen.findByRole('button', { name: t('report.viewSource', { index: '1' }) }))
+    const drawer = await screen.findByRole('dialog')
+    expect(drawer).toHaveTextContent('Usage')
+    expect(drawer).toHaveTextContent('https://docs.example/guide/usage')
+    expect(within(drawer).getByRole('link', { name: t('websiteChat.openOriginal') })).toHaveAttribute(
+      'href',
+      'https://docs.example/guide/usage',
+    )
+  })
+
+  it('single-page mode still submits exactly like V1', async () => {
+    const user = userEvent.setup()
+    const { mock } = backend()
+    const { t } = await renderWithLocale(<WebsiteChatPage />, { route: '/websites', path: '/websites' })
+    await user.type(
+      await screen.findByPlaceholderText(t('websiteChat.urlPlaceholder')),
+      'https://example.com/report',
+    )
+    await user.click(screen.getByRole('button', { name: t('websiteChat.process') }))
+    const created = mock.mock.calls.find(
+      ([url, init]) => url === '/api/websites' && (init as RequestInit)?.method === 'POST',
+    )
+    expect(requestBody(created?.[1] as RequestInit)).toEqual({ url: 'https://example.com/report' })
+  })
+})
+
+
+describe('Website Chat — indexing a selection of pages (regression)', () => {
+  const HOST = 'https://en.wikipedia.org'
+  const ROOT = `${HOST}/wiki/Perovskite_solar_cell`
+  const SELECTION = [
+    ROOT,
+    `${HOST}/wiki/Solar_cell_efficiency`,
+    `${HOST}/wiki/Tandem_solar_cell`,
+    `${HOST}/wiki/Thin-film_solar_cell`,
+  ]
+  const TITLES = ['Perovskite solar cell', 'Solar cell efficiency', 'Tandem solar cell', 'Thin-film solar cell']
+
+  const discovery = {
+    root_url: ROOT,
+    root_title: TITLES[0],
+    pages: SELECTION.map((url, index) => ({
+      url,
+      title: TITLES[index],
+      found_via: index === 0 ? 'root' : 'link',
+    })),
+    skipped: {},
+    robots_applied: true,
+    max_pages: 20,
+  }
+
+  const indexedPages = SELECTION.map((url, index) => ({
+    id: `p${index}`,
+    website_id: 'site-9',
+    index_version: 2,
+    position: index,
+    url,
+    final_url: url,
+    title: TITLES[index],
+    status: 'INDEXED',
+    error: '',
+    error_code: '',
+    content_language: 'en',
+    word_count: 900,
+    chunk_count: 5,
+    fetched_at: null,
+  }))
+
+  /** The website that already existed as a single page, now re-scoped. */
+  function rescoped(overrides: Partial<WebsiteSource> = {}): WebsiteSource {
+    return site({
+      id: 'site-9',
+      mode: 'SITE',
+      page_count: 4,
+      index_version: 2,
+      submitted_url: ROOT,
+      normalized_url: ROOT,
+      final_url: ROOT,
+      page_title: TITLES[0],
+      domain: 'en.wikipedia.org',
+      ...overrides,
+    })
+  }
+
+  const routes = (
+    <Routes>
+      <Route path="/websites" element={<WebsiteChatPage />} />
+      <Route path="/websites/:id" element={<WebsiteChatPage />} />
+    </Routes>
+  )
+
+  function siteBackend(options: { detail?: WebsiteSource; holdPost?: Promise<void> } = {}) {
+    const detail = options.detail ?? rescoped()
+    const mock = installFetchMock(async (url, init) => {
+      const method = init?.method ?? 'GET'
+      if (url === '/api/capabilities/languages') return { body: capabilities({}) }
+      if (url === '/api/websites' && method === 'GET') return { body: { websites: [] } }
+      if (url === '/api/websites/discover' && method === 'POST') return { body: discovery }
+      if (url === '/api/websites' && method === 'POST') {
+        if (options.holdPost) await options.holdPost
+        // The start page already existed, so the server re-scopes it.
+        return { status: 200, body: { ...detail, existing: true } }
+      }
+      if (url === '/api/websites/site-9' && method === 'GET') return { body: detail }
+      if (url === '/api/websites/site-9/pages')
+        return { body: { pages: detail.status === 'READY' ? indexedPages : [] } }
+      if (url === '/api/websites/site-9/conversations') return { body: { conversations: [] } }
+      return undefined
+    })
+    return { mock }
+  }
+
+  async function chooseAndIndex(t: Translate, user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('radio', { name: t('websiteChat.modeSite') }))
+    await user.type(screen.getByPlaceholderText(t('websiteChat.urlPlaceholder')), ROOT)
+    await user.click(screen.getByRole('button', { name: t('websiteChat.discover') }))
+    await screen.findByText(t('websiteChat.discovery.title'))
+    await user.click(screen.getByRole('button', { name: t('websiteChat.discovery.index') }))
+  }
+
+  it('sends every selected page, including an already-indexed start page', async () => {
+    const user = userEvent.setup()
+    const { mock } = siteBackend()
+    const { t } = await renderWithLocale(routes, { route: '/websites' })
+    await screen.findByLabelText(t('websiteChat.urlLabel'))
+    await chooseAndIndex(t, user)
+    const created = mock.mock.calls.find(
+      ([url, init]) => url === '/api/websites' && (init as RequestInit)?.method === 'POST',
+    )
+    expect(requestBody(created?.[1] as RequestInit)).toEqual({
+      url: ROOT,
+      mode: 'SITE',
+      page_urls: SELECTION,
+    })
+    // Exactly one batch request: no per-page submissions, no re-submission.
+    expect(
+      mock.mock.calls.filter(([url, init]) => url === '/api/websites' && (init as RequestInit)?.method === 'POST'),
+    ).toHaveLength(1)
+  })
+
+  it('waits for the batch request before leaving the selection', async () => {
+    const user = userEvent.setup()
+    let release = () => {}
+    const holdPost = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    siteBackend({ holdPost })
+    const { t } = await renderWithLocale(routes, { route: '/websites' })
+    await screen.findByLabelText(t('websiteChat.urlLabel'))
+    await chooseAndIndex(t, user)
+    // Still on the selection, reporting work in progress.
+    expect(screen.getAllByText(t('websiteChat.processing')).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: new RegExp(t('websiteChat.pages.title')) })).toBeNull()
+    release()
+    expect(
+      await screen.findByRole('button', { name: new RegExp(t('websiteChat.pages.title')) }),
+    ).toBeInTheDocument()
+  })
+
+  it('shows every newly indexed page after navigating to the website', async () => {
+    const user = userEvent.setup()
+    siteBackend()
+    const { t } = await renderWithLocale(routes, { route: '/websites' })
+    await screen.findByLabelText(t('websiteChat.urlLabel'))
+    await chooseAndIndex(t, user)
+    const toggle = await screen.findByRole('button', { name: new RegExp(t('websiteChat.pages.title')) })
+    expect(toggle).toHaveTextContent(t('websiteChat.pages.summary', { indexed: '4', total: '4' }))
+    await user.click(toggle)
+    const panel = screen.getByRole('region', { name: t('websiteChat.pages.title') })
+    for (const title of TITLES) expect(within(panel).getByText(title)).toBeInTheDocument()
+  })
+
+  it('never claims the website was already indexed while it is being re-indexed', async () => {
+    const user = userEvent.setup()
+    siteBackend({ detail: rescoped({ status: 'FETCHING', page_count: 0 }) })
+    const { t } = await renderWithLocale(routes, { route: '/websites' })
+    await screen.findByLabelText(t('websiteChat.urlLabel'))
+    await chooseAndIndex(t, user)
+    await screen.findByText(t('websiteChat.stages.FETCHING'))
+    expect(screen.queryByText(t('websiteChat.existing'))).toBeNull()
   })
 })

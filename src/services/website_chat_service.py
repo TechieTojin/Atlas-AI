@@ -23,6 +23,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 import re
+import hashlib
 import threading
 import time
 from typing import Any
@@ -41,6 +42,9 @@ from src.languages import language_instruction
 from src.models.runs import utcnow
 from src.models.websites import (
     AnswerStage,
+    PageStatus,
+    WebsiteMode,
+    WebsitePage,
     MessageRole,
     MessageStatus,
     WebsiteChunk,
@@ -67,6 +71,7 @@ from src.website import errors
 from src.website.chunking import chunk_blocks, estimate_tokens
 from src.website.context import focus_excerpt, plan_for, question_terms, select_passages
 from src.website.errors import WebsiteError, WebsiteNotFoundError, WebsiteStateError
+from src.website.discover import DiscoveryResult, discover_pages
 from src.website.extract import decode_body, extract_page
 from src.website.grounding import evidence_numbers, ungrounded_numbers
 from src.website.fetch import FetchLimits, SafeWebsiteFetcher, check_hostname, is_public_address
@@ -169,12 +174,9 @@ class WebsiteChatService:
 
     # -- websites --------------------------------------------------------------
 
-    def submit(self, url: str) -> tuple[WebsiteSource, bool]:
-        """Index ``url``; an already indexed URL is returned, not re-indexed.
-
-        Returns ``(website, created)``. Obvious local targets are refused
-        synchronously; DNS-based checks run (again, per hop) in the fetch.
-        """
+    def _precheck(self, url: str) -> str:
+        """Normalized URL after the synchronous host checks (shared by every
+        entry point; DNS-based checks run again, per hop, in the fetch)."""
         normalized = normalize_url(url)
         from urllib.parse import urlsplit
 
@@ -185,6 +187,15 @@ class WebsiteChatService:
                 errors.BLOCKED_ADDRESS,
                 "The address is private, local or reserved and cannot be fetched.",
             )
+        return normalized
+
+    def submit(self, url: str) -> tuple[WebsiteSource, bool]:
+        """Index ``url``; an already indexed URL is returned, not re-indexed.
+
+        Returns ``(website, created)``. Obvious local targets are refused
+        synchronously; DNS-based checks run (again, per hop) in the fetch.
+        """
+        normalized = self._precheck(url)
         existing = self._repo.get_by_normalized_url(normalized)
         if existing is not None:
             if existing.status in (WebsiteStatus.FAILED, WebsiteStatus.CANCELLED) and not existing.is_indexed:
@@ -199,6 +210,78 @@ class WebsiteChatService:
             return stored, False
         self._start(site, refresh=False)
         return self._repo.get(site.id) or site, True
+
+    def discover(self, url: str) -> DiscoveryResult:
+        """Same-host candidate pages for SITE mode (synchronous, bounded).
+
+        Only the root page, robots.txt and sitemap.xml are fetched, all
+        through the SSRF-safe fetcher. Nothing is persisted.
+        """
+        self._precheck(url)
+        return discover_pages(self._fetcher, url)
+
+    def submit_site(self, url: str, page_urls: list[str]) -> tuple[WebsiteSource, bool]:
+        """Index a bounded, user-selected set of same-site pages.
+
+        ``page_urls`` is the explicit selection from :meth:`discover`; every
+        entry must be a clean same-host http(s) URL. If a website already
+        exists for the same root URL (for example one indexed earlier as a
+        single page), it is re-scoped to this selection and re-indexed rather
+        than returned unchanged; unchanged pages keep their embeddings.
+        """
+        from urllib.parse import urlsplit
+
+        normalized = self._precheck(url)
+        host = (urlsplit(normalized).hostname or "").lower()
+        selection: list[str] = []
+        for page_url in page_urls:
+            canonical = normalize_url(page_url)
+            if (urlsplit(canonical).hostname or "").lower() != host:
+                raise WebsiteError(
+                    errors.INVALID_PAGES,
+                    "Every selected page must belong to the same website as the root URL.",
+                )
+            if canonical not in selection:
+                selection.append(canonical)
+        if normalized not in selection:
+            selection.insert(0, normalized)
+        if not selection:
+            raise WebsiteError(errors.INVALID_PAGES, "Select at least one page to index.")
+        if len(selection) > self._config.website_max_pages:
+            raise WebsiteError(
+                errors.INVALID_PAGES,
+                f"At most {self._config.website_max_pages} pages can be indexed per website.",
+            )
+        existing = self._repo.get_by_normalized_url(normalized)
+        if existing is not None:
+            if existing.status.is_active:
+                raise WebsiteStateError(errors.BUSY, "This website is already being indexed.")
+            existing.submitted_url = url.strip()
+            was_site = existing.mode is WebsiteMode.SITE
+            existing.mode = WebsiteMode.SITE
+            existing.metrics = {**existing.metrics, "page_selection": selection}
+            # Only a website already indexed page-by-page has per-page content
+            # hashes and embeddings worth reusing.
+            self._start(existing, refresh=was_site and existing.is_indexed)
+            return self._repo.get(existing.id) or existing, False
+        site = WebsiteSource(
+            submitted_url=url.strip(),
+            normalized_url=normalized,
+            domain=display_domain(normalized),
+            mode=WebsiteMode.SITE,
+            metrics={"page_selection": selection},
+        )
+        stored = self._repo.insert(site)
+        if stored.id != site.id:
+            return stored, False
+        self._start(site, refresh=False)
+        return self._repo.get(site.id) or site, True
+
+    def pages(self, website_id: str) -> list[WebsitePage]:
+        site = self.get(website_id)
+        if not site.is_indexed:
+            return []
+        return self._repo.pages(site.id, site.index_version)
 
     def _start(self, site: WebsiteSource, refresh: bool) -> None:
         with self._lock:
@@ -289,6 +372,9 @@ class WebsiteChatService:
         site = self._repo.get(website_id)
         if site is None:
             self._release(website_id)
+            return
+        if site.mode is WebsiteMode.SITE:
+            self._ingest_site(site, refresh)
             return
         timings: dict[str, Any] = {}
         started = time.perf_counter()
@@ -410,6 +496,239 @@ class WebsiteChatService:
             logger.exception("Website %s indexing failed unexpectedly.", website_id)
             self._fail(
                 website_id, errors.PROCESSING_FAILED, "Atlas could not process this page.", timings, started
+            )
+        finally:
+            self._release(website_id)
+
+    def _ingest_site(self, site: WebsiteSource, refresh: bool) -> None:
+        """Index the user-selected pages of a SITE-mode website.
+
+        Pages are fetched sequentially through the same SSRF-safe fetcher as
+        SINGLE mode; a page failure marks THAT page failed and continues. On a
+        refresh, a page whose content hash is unchanged keeps its chunks and
+        their stored embeddings (no re-embedding); only changed or new pages
+        are embedded. The whole new version (pages + chunks) is swapped in
+        atomically; any failure before that leaves the old index intact.
+        Ingestion never calls an LLM.
+        """
+        website_id = site.id
+        timings: dict[str, Any] = {}
+        started = time.perf_counter()
+        try:
+            old_by_url: dict[str, WebsitePage] = {}
+            old_chunks_by_page: dict[str, list[tuple[WebsiteChunk, bytes]]] = {}
+            selection = list(site.metrics.get("page_selection") or [])
+            if refresh and site.is_indexed:
+                old_pages = self._repo.pages(site.id, site.index_version)
+                # The stored selection wins: a re-scope must index the pages the
+                # user just chose, not the ones indexed last time.
+                selection = selection or [p.url for p in old_pages]
+                old_by_url = {p.url: p for p in old_pages if p.status is PageStatus.INDEXED}
+                for chunk, blob in self._repo.chunk_embeddings(site.id, site.index_version).values():
+                    old_chunks_by_page.setdefault(chunk.page_id, []).append((chunk, blob))
+                for items in old_chunks_by_page.values():
+                    items.sort(key=lambda pair: pair[0].chunk_index)
+            else:
+                selection = list(site.metrics.get("page_selection") or [])
+            if not selection:
+                raise WebsiteError(errors.INVALID_PAGES, "No pages were selected for this website.")
+
+            version = site.index_version + 1
+            pages: list[WebsitePage] = []
+            chunks: list[WebsiteChunk] = []
+            texts: list[str] = []  # fresh texts to embed, in chunk order
+            reuse: dict[str, bytes] = {}  # copied chunk id -> stored embedding
+            outcome = {"unchanged": 0, "changed": 0, "new": 0, "failed": 0}
+            timings["pages_total"] = len(selection)
+            timings["llm_calls"] = 0
+            fetch_ms = 0
+
+            self._set_status(site, WebsiteStatus.FETCHING)
+            for position, page_url in enumerate(selection):
+                self._check_cancel(site)
+                timings["pages_done"] = position
+                site.metrics = {**site.metrics, "pages_total": len(selection), "pages_done": position}
+                site.updated_at = utcnow()
+                if not self._repo.update(site):
+                    raise _Deleted()
+                page = WebsitePage(
+                    website_id=site.id, index_version=version, position=position, url=page_url
+                )
+                try:
+                    t = time.perf_counter()
+                    fetched = self._fetcher.fetch(
+                        page_url, should_cancel=lambda: website_id in self._cancelled
+                    )
+                    fetch_ms += int((time.perf_counter() - t) * 1000)
+                    extracted = extract_page(
+                        decode_body(fetched.body, fetched.charset), is_html=fetched.is_html
+                    )
+                    page.final_url = fetched.final_url
+                    page.title = extracted.title or display_domain(fetched.final_url)
+                    page.content_hash = extracted.content_hash
+                    page.content_language = extracted.language
+                    page.word_count = extracted.word_count
+                    page.fetched_at = utcnow()
+                    old = old_by_url.get(page_url)
+                    if (
+                        old is not None
+                        and old.content_hash == extracted.content_hash
+                        and old_chunks_by_page.get(old.id)
+                    ):
+                        for old_chunk, blob in old_chunks_by_page[old.id]:
+                            copied = WebsiteChunk(
+                                website_id=site.id,
+                                index_version=version,
+                                chunk_index=0,  # assigned globally below
+                                section_title=old_chunk.section_title,
+                                heading_path=list(old_chunk.heading_path),
+                                text=old_chunk.text,
+                                char_start=old_chunk.char_start,
+                                char_end=old_chunk.char_end,
+                                page_id=page.id,
+                                page_url=page.final_url or page.url,
+                                page_title=page.title,
+                            )
+                            reuse[copied.id] = blob
+                            chunks.append(copied)
+                        page.chunk_count = len(old_chunks_by_page[old.id])
+                        outcome["unchanged"] += 1
+                    else:
+                        drafts = chunk_blocks(extracted.blocks)
+                        if not drafts:
+                            raise WebsiteError(
+                                errors.EMPTY_CONTENT, "No meaningful text was found on this page."
+                            )
+                        if len(drafts) > self._config.website_max_chunks:
+                            raise WebsiteError(
+                                errors.TOO_LONG,
+                                f"This page is too long to index ({len(drafts)} sections; the "
+                                f"limit is {self._config.website_max_chunks}).",
+                            )
+                        for draft in drafts:
+                            chunks.append(
+                                WebsiteChunk(
+                                    website_id=site.id,
+                                    index_version=version,
+                                    chunk_index=0,
+                                    section_title=draft.section_title,
+                                    heading_path=draft.heading_path,
+                                    text=draft.text,
+                                    char_start=draft.char_start,
+                                    char_end=draft.char_end,
+                                    page_id=page.id,
+                                    page_url=page.final_url or page.url,
+                                    page_title=page.title,
+                                )
+                            )
+                            texts.append(
+                                document_text(
+                                    site, draft.section_title, draft.text, self._prefixed,
+                                    title=page.title,
+                                )
+                            )
+                        page.chunk_count = len(drafts)
+                        outcome["changed" if old is not None else "new"] += 1
+                    page.status = PageStatus.INDEXED
+                except WebsiteError as exc:
+                    if exc.code == errors.CANCELLED:
+                        raise
+                    page.status = PageStatus.FAILED
+                    page.error, page.error_code = exc.message, exc.code
+                    outcome["failed"] += 1
+                except Exception:
+                    logger.exception("Website %s page %s failed.", website_id, page_url)
+                    page.status = PageStatus.FAILED
+                    page.error = "Atlas could not process this page."
+                    page.error_code = errors.PROCESSING_FAILED
+                    outcome["failed"] += 1
+                pages.append(page)
+
+            timings["pages_done"] = len(selection)
+            timings["fetch_ms"] = fetch_ms
+            indexed_pages = [p for p in pages if p.status is PageStatus.INDEXED]
+            if not indexed_pages:
+                raise WebsiteError(
+                    errors.NO_PAGES, "None of the selected pages could be indexed."
+                )
+            if len(chunks) > self._config.website_site_max_chunks:
+                raise WebsiteError(
+                    errors.TOO_LONG,
+                    f"These pages together are too long to index ({len(chunks)} sections; the "
+                    f"limit is {self._config.website_site_max_chunks}).",
+                )
+            for index, chunk in enumerate(chunks):
+                chunk.chunk_index = index
+
+            self._set_status(site, WebsiteStatus.EMBEDDING)
+            t = time.perf_counter()
+            vectors: list[list[float]] = []
+            try:
+                for i in range(0, len(texts), EMBED_BATCH):
+                    self._check_cancel(site)
+                    vectors.extend(self._embed(texts[i : i + EMBED_BATCH]))
+            except WebsiteError:
+                raise
+            except Exception as exc:
+                logger.warning("Website %s embedding failed: %s", website_id, type(exc).__name__)
+                raise WebsiteError(
+                    errors.EMBEDDING_FAILED,
+                    "The local embedding model could not process these pages. "
+                    "Check that Ollama is running.",
+                ) from exc
+            timings["embed_ms"] = int((time.perf_counter() - t) * 1000)
+            self._check_cancel(site)
+
+            t = time.perf_counter()
+            root = pages[0] if pages[0].status is PageStatus.INDEXED else indexed_pages[0]
+            site.final_url = root.final_url or root.url
+            site.domain = display_domain(site.final_url)
+            site.page_title = root.title or site.domain
+            site.content_language = root.content_language
+            site.fetched_at = utcnow()
+            site.index_version = version
+            site.content_hash = hashlib.sha256(
+                "|".join(p.content_hash for p in indexed_pages).encode("utf-8")
+            ).hexdigest()
+            site.word_count = sum(p.word_count for p in indexed_pages)
+            site.chunk_count = len(chunks)
+            site.page_count = len(indexed_pages)
+            site.indexed_at = utcnow()
+            site.status = WebsiteStatus.READY
+            site.error, site.error_code = "", ""
+            site.updated_at = utcnow()
+            timings["refresh_outcome"] = "changed" if refresh else "new"
+            if refresh and outcome["unchanged"] == len(selection):
+                timings["refresh_outcome"] = "unchanged"
+            timings["page_outcomes"] = outcome
+            timings["chunks"] = len(chunks)
+            timings["chunks_embedded"] = len(texts)
+            timings["chunks_reused"] = len(reuse)
+            timings["words"] = site.word_count
+            timings["total_ms"] = int((time.perf_counter() - started) * 1000)
+            site.metrics = {**timings, "page_selection": selection}
+            if not self._repo.replace_index(
+                site, chunks, vectors, pages=pages, reuse_embeddings=reuse
+            ):
+                raise _Deleted()
+            timings["persist_ms"] = int((time.perf_counter() - t) * 1000)
+            site.metrics = {**timings, "page_selection": selection}
+            self._repo.update(site)
+            logger.info(
+                "Website %s indexed %d/%d pages: %d words, %d chunks "
+                "(%d embedded, %d reused); 0 LLM calls.",
+                website_id, len(indexed_pages), len(selection), site.word_count,
+                site.chunk_count, len(texts), len(reuse),
+            )
+        except _Deleted:
+            logger.info("Website %s was deleted during indexing; stopping.", website_id)
+        except WebsiteError as exc:
+            self._fail(website_id, exc.code, exc.message, timings, started)
+        except Exception:
+            logger.exception("Website %s site indexing failed unexpectedly.", website_id)
+            self._fail(
+                website_id, errors.PROCESSING_FAILED,
+                "Atlas could not process this website.", timings, started,
             )
         finally:
             self._release(website_id)
@@ -621,7 +940,8 @@ class WebsiteChatService:
                     index=n, chunk_id=i.chunk.id, index_version=i.chunk.index_version,
                     chunk_index=i.chunk.chunk_index, section_title=i.chunk.section_title,
                     heading_path=i.chunk.heading_path, text=i.chunk.text, score=round(i.score, 4),
-                    url=site.final_url or site.normalized_url, page_title=site.page_title,
+                    url=i.chunk.page_url or site.final_url or site.normalized_url,
+                    page_title=i.chunk.page_title or site.page_title,
                 )
                 for n, i in enumerate(items, 1)
             ]
@@ -753,16 +1073,22 @@ class WebsiteChatService:
                 self._cancelled.discard(message_id)
 
     @staticmethod
-    def _judge(raw: str, n_items: int, evidence: set[str]) -> tuple[str, str, set[int]]:
-        """("ok" | "insufficient" | a rejection reason, cleaned text, cited numbers)."""
+    def _judge(
+        raw: str, n_items: int, evidence: set[str], sentinel: str = NOT_IN_PAGE
+    ) -> tuple[str, str, set[int]]:
+        """("ok" | "insufficient" | a rejection reason, cleaned text, cited numbers).
+
+        ``sentinel`` is the exact not-answerable token the prompt asked for
+        (Website Chat and Document Chat use their own wording).
+        """
         text = extract_report_text(raw)
         text = strip_reasoning_artifacts(text)
         text = strip_generated_reference_sections(text)
         text = strip_invalid_citations(text, n_items)
         text = unlink_answer(plain_notation(text)).strip()
-        if text.strip(" .\"'`*") == NOT_IN_PAGE or not text:
+        if text.strip(" .\"'`*") == sentinel or not text:
             return "insufficient", "", set()
-        text = text.replace(NOT_IN_PAGE, "").strip()
+        text = text.replace(sentinel, "").strip()
         if scientific_text_issues(text):
             return "notation", text, set()
         cited = extract_valid_citations(text, n_items)

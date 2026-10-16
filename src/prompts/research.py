@@ -25,6 +25,17 @@ Research question:
 
 Produce a research plan."""
 
+PLANNER_BRANCH_NOTE = """
+
+This research BRANCHES OFF an earlier Atlas run. The user selected this exact
+material from that run and asked to investigate further. Treat it as the
+starting point — plan searches that go BEYOND it, not searches that merely
+re-confirm it. It is background, not evidence; the new report must cite only
+newly retrieved sources.
+
+BRANCH CONTEXT ({branch_label}):
+{branch}"""
+
 PLANNER_MEMORY_NOTE = """\
 
 Earlier research in this project already established the following. Treat it

@@ -32,6 +32,9 @@ from src.services.kg_service import KGService
 from src.services.overview_service import ProjectOverviewService
 from src.services.project_graph import ProjectGraphService
 from src.services.research_service import ResearchService
+from src.persistence.collections import CollectionsRepository
+from src.persistence.document_chat import DocumentChatRepository
+from src.services.document_chat_service import DocumentChatService
 from src.services.website_chat_service import WebsiteChatService
 
 
@@ -62,6 +65,8 @@ class Container:
         self.kg_repo = KGRepository(self.db)
         self.findings_repo = FindingsRepository(self.db)
         self.websites_repo = WebsitesRepository(self.db)
+        self.document_chat_repo = DocumentChatRepository(self.db)
+        self.collections_repo = CollectionsRepository(self.db)
         self.bus = RunEventBus()
         # One router decides language -> model and capability for every
         # generating service, so they can never disagree.
@@ -159,4 +164,15 @@ class Container:
             executor=website_executor,
             languages=self.languages,
             fetcher=website_fetcher,
+        )
+        # Document Chat reuses the same small pool: both are short, grounded
+        # Q&A jobs that must not queue behind long research runs.
+        self.document_chat_service = DocumentChatService(
+            self.config,
+            self.document_chat_repo,
+            self.documents_repo,
+            self.document_service,
+            llm_factory=shared_llm,
+            executor=website_executor,
+            languages=self.languages,
         )

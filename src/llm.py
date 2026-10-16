@@ -23,7 +23,7 @@ class OllamaNotAvailableError(ConfigError):
     """Raised when the Ollama server or the configured model is unavailable."""
 
 
-STAGES = ("planner", "critic", "synthesis", "repair", "website_chat", "default")
+STAGES = ("planner", "critic", "synthesis", "repair", "website_chat", "document_chat", "default")
 
 
 def stage_limits(config: AtlasConfig, stage: str) -> tuple[int | None, int | None]:
@@ -46,6 +46,10 @@ def stage_limits(config: AtlasConfig, stage: str) -> tuple[int | None, int | Non
         "website_chat": (
             config.website_chat_max_tokens,
             config.website_chat_timeout_seconds,
+        ),
+        "document_chat": (
+            config.document_chat_max_tokens,
+            config.document_chat_timeout_seconds,
         ),
     }
     tokens, deadline = caps.get(stage, (None, 0))

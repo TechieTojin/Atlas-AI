@@ -223,6 +223,7 @@ class ResearchService:
         custom_template: str = "",
         use_memory: bool = True,
         output_language: str | None = None,
+        branch=None,
     ) -> ResearchRun:
         from src.templates import resolve_template
 
@@ -253,6 +254,7 @@ class ResearchService:
             custom_template=custom_template if template_id == "CUSTOM" else "",
             use_memory=use_memory,
             output_language=language,
+            branch=branch,
         )
         self._runs.save(run)
         self._scope_for(run.id)
@@ -391,6 +393,8 @@ class ResearchService:
                 max_tasks=config.planner_max_tasks,
                 memory_context=memory_context,
                 output_language=run.output_language,
+                branch_context=run.branch.context_text if run.branch else "",
+                branch_label=run.branch.context_label if run.branch else "",
             )
             result = planner({"question": run.query})
             planner_ms = int((time.perf_counter() - start) * 1000)
@@ -500,6 +504,8 @@ class ResearchService:
             budget=budget,
             memory_context=memory_context,
             output_language=run.output_language,
+            branch_context=run.branch.context_text if run.branch else "",
+            branch_label=run.branch.context_label if run.branch else "",
         )
         state = initial_state(run.query, config)
         if resume_plan is not None:

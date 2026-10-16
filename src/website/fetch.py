@@ -185,7 +185,15 @@ class SafeWebsiteFetcher:
         self._transport = transport  # httpx transport, injectable for tests
         self._clock = clock
 
-    def fetch(self, url: str, should_cancel: Callable[[], bool] = lambda: False) -> FetchResult:
+    def fetch(
+        self,
+        url: str,
+        should_cancel: Callable[[], bool] = lambda: False,
+        extra_types: tuple[str, ...] = (),
+    ) -> FetchResult:
+        """``extra_types`` admits additional content types for ONE request
+        (sitemap.xml / robots.txt during discovery). Every security check is
+        identical; only the final content-type allowlist is widened."""
         import httpx
 
         limits = self._limits
@@ -257,11 +265,11 @@ class SafeWebsiteFetcher:
                                 "The page redirected to a destination that cannot be fetched.",
                             ) from exc
                         continue
-                    return self._read(response, current, started, deadline, redirects, should_cancel)
+                    return self._read(response, current, started, deadline, redirects, should_cancel, extra_types)
                 finally:
                     response.close()
 
-    def _read(self, response, url, started, deadline, redirects, should_cancel) -> FetchResult:
+    def _read(self, response, url, started, deadline, redirects, should_cancel, extra_types=()) -> FetchResult:
         import httpx
 
         status = response.status_code
@@ -305,7 +313,7 @@ class SafeWebsiteFetcher:
         if not media:
             head = body[:512].lstrip().lower()
             media = "text/html" if head.startswith((b"<!doctype html", b"<html")) else ""
-        if media not in _HTML_TYPES + _TEXT_TYPES:
+        if media not in _HTML_TYPES + _TEXT_TYPES + tuple(extra_types):
             raise WebsiteError(
                 errors.UNSUPPORTED_CONTENT,
                 f"This URL returns {media or 'unknown content'}, not a webpage.",

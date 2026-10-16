@@ -8,9 +8,10 @@ import { MetricsPanel } from './MetricsPanel'
 import { ReportSections } from './ReportSections'
 import { DocumentInfo, QuickActions, ReportContents } from './ReportSidebar'
 import { SourcesList } from './SourcesList'
-import { BarChartIcon, FileTextIcon, LayersIcon, NetworkIcon, QuoteIcon } from './icons'
+import { BarChartIcon, FileTextIcon, LayersIcon, ListTreeIcon, NetworkIcon, QuoteIcon } from './icons'
+import { ResearchMap } from './ResearchMap'
 
-type TabId = 'report' | 'sources' | 'evidence' | 'metrics' | 'graph'
+type TabId = 'report' | 'sources' | 'evidence' | 'metrics' | 'graph' | 'map'
 
 const TABS: { id: TabId; icon: typeof FileTextIcon }[] = [
   { id: 'report', icon: FileTextIcon },
@@ -18,6 +19,7 @@ const TABS: { id: TabId; icon: typeof FileTextIcon }[] = [
   { id: 'evidence', icon: QuoteIcon },
   { id: 'metrics', icon: BarChartIcon },
   { id: 'graph', icon: NetworkIcon },
+  { id: 'map', icon: ListTreeIcon },
 ]
 
 export function RunTabs({ run, projectName = null }: { run: RunDetail; projectName?: string | null }) {
@@ -101,6 +103,11 @@ export function RunTabs({ run, projectName = null }: { run: RunDetail; projectNa
         {active === 'graph' && (
           <div className="glass-card panel-card">
             <KnowledgeGraphTab {...runKnowledgeGraphTabProps(run.id)} />
+          </div>
+        )}
+        {active === 'map' && (
+          <div className="glass-card panel-card">
+            <ResearchMap runId={run.id} onOpenReport={() => setActive('report')} />
           </div>
         )}
       </div>

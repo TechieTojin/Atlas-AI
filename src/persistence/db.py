@@ -264,6 +264,84 @@ _MIGRATIONS: list[str] = [
         UNIQUE (conversation_id, seq)
     );
     """,
+    # v6 — Research Workspace: multi-page websites, grounded document chat,
+    # and collections/notebooks. Additive only; every new column has a default
+    # so existing single-page websites and their chunks stay valid, and no
+    # existing row is rewritten.
+    """
+    ALTER TABLE websites ADD COLUMN mode TEXT NOT NULL DEFAULT 'SINGLE';
+    ALTER TABLE websites ADD COLUMN page_count INTEGER NOT NULL DEFAULT 0;
+
+    CREATE TABLE IF NOT EXISTS website_pages (
+        id TEXT PRIMARY KEY,
+        website_id TEXT NOT NULL REFERENCES websites(id) ON DELETE CASCADE,
+        index_version INTEGER NOT NULL,
+        position INTEGER NOT NULL,
+        url TEXT NOT NULL,
+        final_url TEXT NOT NULL DEFAULT '',
+        title TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL,
+        error TEXT NOT NULL DEFAULT '',
+        error_code TEXT NOT NULL DEFAULT '',
+        content_hash TEXT NOT NULL DEFAULT '',
+        content_language TEXT NOT NULL DEFAULT '',
+        word_count INTEGER NOT NULL DEFAULT 0,
+        chunk_count INTEGER NOT NULL DEFAULT 0,
+        fetched_at TEXT,
+        UNIQUE (website_id, index_version, position)
+    );
+    CREATE INDEX IF NOT EXISTS idx_website_pages_site
+        ON website_pages(website_id, index_version);
+
+    ALTER TABLE website_chunks ADD COLUMN page_id TEXT NOT NULL DEFAULT '';
+    ALTER TABLE website_chunks ADD COLUMN page_url TEXT NOT NULL DEFAULT '';
+    ALTER TABLE website_chunks ADD COLUMN page_title TEXT NOT NULL DEFAULT '';
+
+    CREATE TABLE IF NOT EXISTS document_conversations (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL DEFAULT '',
+        document_ids TEXT NOT NULL DEFAULT '[]',
+        output_language TEXT NOT NULL DEFAULT 'en',
+        project_id TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_document_conversations_updated
+        ON document_conversations(updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS document_messages (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL
+            REFERENCES document_conversations(id) ON DELETE CASCADE,
+        seq INTEGER NOT NULL,
+        role TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        data TEXT NOT NULL DEFAULT '{}',
+        UNIQUE (conversation_id, seq)
+    );
+
+    CREATE TABLE IF NOT EXISTS collections (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        project_id TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_collections_updated ON collections(updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS collection_items (
+        id TEXT PRIMARY KEY,
+        collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        data TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        UNIQUE (collection_id, position)
+    );
+    """,
 ]
 
 

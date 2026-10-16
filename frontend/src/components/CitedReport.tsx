@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
+import { SaveToCollection } from './SaveToCollection'
 import { artifactLang, useI18n, type Translate } from '../i18n'
 import type { Claim, Evidence, Source } from '../types'
 import { ExtractionBadge } from './EvidenceList'
@@ -178,6 +179,20 @@ export function SourceDrawer({
         </header>
 
         <div className="drawer-body">
+          <div className="drawer-save">
+            <SaveToCollection
+              itemType="source"
+              data={{
+                title: source.title,
+                url: source.url,
+                domain: source.domain,
+                filename: source.filename,
+                page: source.page,
+                citation: source.index,
+                quality: source.quality ?? null,
+              }}
+            />
+          </div>
           <div className="drawer-meta">
             {isNewSource && <span className="badge tone-active">{t('common.new')}</span>}
             <QualityBadge quality={source.quality} expandable />

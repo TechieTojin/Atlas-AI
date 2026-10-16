@@ -94,6 +94,8 @@ def build_workflow(
     budget: Any = None,
     memory_context: str = "",
     output_language: str = "en",
+    branch_context: str = "",
+    branch_label: str = "",
 ):
     """Compile the Atlas graph with injected LLM and search dependencies.
 
@@ -201,6 +203,8 @@ def build_workflow(
                     max_tasks=config.planner_max_tasks,
                     memory_context=memory_context,
                     output_language=output_language,
+                    branch_context=branch_context,
+                    branch_label=branch_label,
                 ),
                 emitter,
                 cancel_check,

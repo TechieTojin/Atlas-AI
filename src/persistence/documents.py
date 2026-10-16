@@ -165,6 +165,21 @@ class DocumentsRepository:
         finally:
             self._db.release(conn)
 
+    def chunks(self, document_id: str) -> list[DocumentChunk]:
+        """All stored chunks of one document, in order (no embeddings)."""
+        conn = self._db.connect()
+        try:
+            rows = conn.execute(
+                "SELECT document_id, chunk_index, page, content FROM chunks "
+                "WHERE document_id = ? ORDER BY chunk_index",
+                (document_id,),
+            ).fetchall()
+        except sqlite3.Error as exc:
+            raise PersistenceError(f"Failed to load chunks: {exc}") from exc
+        finally:
+            self._db.release(conn)
+        return [DocumentChunk(**dict(r)) for r in rows]
+
     def search_chunks(
         self,
         query_embedding: list[float],

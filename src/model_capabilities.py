@@ -23,12 +23,12 @@ from src.languages import ENGLISH, OUTPUT_LANGUAGE_CODES, OUTPUT_LANGUAGES, pars
 
 #: Kinds of generated artifact. A language can pass for one and fail another:
 #: comparisons are structured, attribution-checked output and are harder.
-FEATURES = ("report", "followup", "comparison", "website_chat")
+FEATURES = ("report", "followup", "comparison", "website_chat", "document_chat")
 
 #: Features that never inherit a language's report verdict: each needs its own
 #: validation, recorded in ``_FEATURE_VERDICTS``. Until then a non-English
 #: language is UNVALIDATED for the feature (English is never gated).
-OWN_VALIDATION_FEATURES = frozenset({"website_chat"})
+OWN_VALIDATION_FEATURES = frozenset({"website_chat", "document_chat"})
 
 SUPPORTED = "supported"
 UNSUPPORTED = "unsupported"

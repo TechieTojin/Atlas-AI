@@ -6,6 +6,8 @@ import { AtlasMark, MenuIcon } from './components/icons'
 import { useTheme } from './hooks/useTheme'
 import { useI18n } from './i18n'
 import { ComparisonPage } from './pages/ComparisonPage'
+import { CollectionPage, CollectionsPage } from './pages/CollectionsPage'
+import { DocumentChatPage } from './pages/DocumentChatPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { ProjectPage } from './pages/ProjectPage'
 import { ProjectsPage } from './pages/ProjectsPage'
@@ -53,6 +55,9 @@ export default function App() {
               <Route path="/" element={<ResearchPage />} />
               <Route path="/runs/:id" element={<RunPage />} />
               <Route path="/documents" element={<DocumentsPage />} />
+              <Route path="/documents/chat" element={<DocumentChatPage />} />
+              <Route path="/collections" element={<CollectionsPage />} />
+              <Route path="/collections/:id" element={<CollectionPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/projects/:id" element={<ProjectPage />} />
               <Route path="/comparisons/:id" element={<ComparisonPage />} />

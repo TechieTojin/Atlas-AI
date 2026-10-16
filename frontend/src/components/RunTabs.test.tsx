@@ -1,7 +1,12 @@
-import { render, screen } from '@testing-library/react'
+import { render as baseRender, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
+
+/** The Research Map tab uses router hooks, so renders need a router around them. */
+const render = (ui: React.ReactElement) => baseRender(<MemoryRouter>{ui}</MemoryRouter>)
 import { describe, expect, it } from 'vitest'
 import { makeEvaluation, makeRun } from '../test/fixtures'
+import { installFetchMock } from '../test/mockFetch'
 import type { Source } from '../types'
 import { RunTabs } from './RunTabs'
 
@@ -71,5 +76,34 @@ describe('RunTabs', () => {
     expect(screen.getByText('Citation coverage 85%')).toBeInTheDocument()
     expect(screen.getByText('Failed')).toBeInTheDocument()
     expect(screen.getByText('Citation [9] missing')).toBeInTheDocument()
+  })
+
+  it('adds a Research Map tab next to the existing tabs, and Open report returns to the report', async () => {
+    const user = userEvent.setup()
+    installFetchMock((url) =>
+      url === `/api/runs/${run.id}/research-map`
+        ? {
+            body: {
+              run_id: run.id, run_status: 'COMPLETED', question: 'Q', mode: 'FAST', source_scope: 'WEB',
+              template: 'STANDARD', output_language: 'en', live: false,
+              nodes: [
+                { id: 'question', type: 'question', label: 'Q', status: 'completed', rank: 0, iteration: null, group: null, started_at: null, completed_at: null, duration_ms: null, data: {} },
+                { id: 'report', type: 'report', label: 'The report', status: 'completed', rank: 1, iteration: null, group: null, started_at: null, completed_at: null, duration_ms: null, data: { citations: 2, word_count: 10 } },
+              ],
+              edges: [], groups: [],
+              summary: { node_count: 2, edge_count: 0, source_count: 0, evidence_count: 0, query_count: 0, iterations: 1, incomplete_history: false },
+              limitations: [],
+            },
+          }
+        : undefined,
+    )
+    render(<RunTabs run={run} />)
+    const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent)
+    expect(tabs.slice(0, 5).map((text) => text?.replace(/\d+$/, ''))).toEqual(['Report', 'Sources', 'Evidence', 'Metrics', 'Graph'])
+    await user.click(screen.getByRole('tab', { name: 'Research Map' }))
+    expect(screen.getByRole('tab', { name: 'Research Map' })).toHaveAttribute('aria-selected', 'true')
+    await user.click(await screen.findByRole('button', { name: /^Report: The report/ }))
+    await user.click(screen.getByRole('button', { name: 'Open report' }))
+    expect(screen.getByRole('tab', { name: /^Report/ })).toHaveAttribute('aria-selected', 'true')
   })
 })

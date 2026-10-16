@@ -24,6 +24,7 @@ from src.models.websites import (
     WebsiteChunk,
     WebsiteConversation,
     WebsiteMessage,
+    WebsitePage,
     WebsiteSource,
     WebsiteStatus,
 )
@@ -34,8 +35,20 @@ _WEBSITE_COLUMNS = (
     "id", "submitted_url", "normalized_url", "final_url", "page_title", "domain",
     "status", "content_hash", "content_language", "word_count", "chunk_count",
     "index_version", "error", "error_code", "fetched_at", "indexed_at",
-    "created_at", "updated_at", "metrics",
+    "created_at", "updated_at", "metrics", "mode", "page_count",
 )
+
+_PAGE_COLUMNS = (
+    "id", "website_id", "index_version", "position", "url", "final_url", "title",
+    "status", "error", "error_code", "content_hash", "content_language",
+    "word_count", "chunk_count", "fetched_at",
+)
+
+
+def _page_row(page: WebsitePage) -> tuple:
+    data = page.model_dump(mode="json")
+    data["status"] = page.status.value
+    return tuple(data[column] for column in _PAGE_COLUMNS)
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -46,6 +59,7 @@ def _website_row(site: WebsiteSource) -> tuple:
     data = site.model_dump(mode="json")
     data["metrics"] = json.dumps(site.metrics)
     data["status"] = site.status.value
+    data["mode"] = site.mode.value
     return tuple(data[column] for column in _WEBSITE_COLUMNS)
 
 
@@ -155,6 +169,7 @@ class WebsitesRepository:
                 conn.execute("DELETE FROM website_messages WHERE conversation_id = ?", (cid,))
             conn.execute("DELETE FROM website_conversations WHERE website_id = ?", (website_id,))
             conn.execute("DELETE FROM website_chunks WHERE website_id = ?", (website_id,))
+            conn.execute("DELETE FROM website_pages WHERE website_id = ?", (website_id,))
             return conn.execute("DELETE FROM websites WHERE id = ?", (website_id,)).rowcount > 0
 
         return self._write(run)
@@ -166,6 +181,8 @@ class WebsitesRepository:
         site: WebsiteSource,
         chunks: list[WebsiteChunk],
         embeddings: list[list[float]],
+        pages: list[WebsitePage] | None = None,
+        reuse_embeddings: dict[str, bytes] | None = None,
     ) -> bool:
         """Atomically publish ``chunks`` as ``site.index_version`` and drop
         every older version, in ONE transaction with the website update.
@@ -174,8 +191,14 @@ class WebsitesRepository:
         can never see half-old/half-new chunks. Returns False when the
         website was deleted meanwhile (nothing is written).
         """
-        if len(chunks) != len(embeddings):
+        reuse_embeddings = reuse_embeddings or {}
+        if len(chunks) != len(embeddings) + len(reuse_embeddings):
             raise PersistenceError("Chunk/embedding count mismatch.")
+        fresh = iter(embeddings)
+        blobs = [
+            reuse_embeddings[chunk.id] if chunk.id in reuse_embeddings else _to_blob(next(fresh))
+            for chunk in chunks
+        ]
         columns = [c for c in _WEBSITE_COLUMNS if c != "id"]
         values = _website_row(site)[1:]
         sets = ",".join(f"{c} = ?" for c in columns)
@@ -187,26 +210,56 @@ class WebsitesRepository:
                 """
                 INSERT INTO website_chunks
                     (id, website_id, index_version, chunk_index, section_title,
-                     heading_path, text, char_start, char_end, embedding)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     heading_path, text, char_start, char_end, embedding,
+                     page_id, page_url, page_title)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     (
                         chunk.id, site.id, site.index_version, chunk.chunk_index,
                         chunk.section_title, json.dumps(chunk.heading_path, ensure_ascii=False),
-                        chunk.text, chunk.char_start, chunk.char_end, _to_blob(vector),
+                        chunk.text, chunk.char_start, chunk.char_end, blob,
+                        chunk.page_id, chunk.page_url, chunk.page_title,
                     )
-                    for chunk, vector in zip(chunks, embeddings)
+                    for chunk, blob in zip(chunks, blobs)
                 ],
             )
+            if pages:
+                page_placeholders = ",".join("?" for _ in _PAGE_COLUMNS)
+                conn.executemany(
+                    f"INSERT INTO website_pages ({', '.join(_PAGE_COLUMNS)}) "
+                    f"VALUES ({page_placeholders})",
+                    [_page_row(page) for page in pages],
+                )
             conn.execute(
                 "DELETE FROM website_chunks WHERE website_id = ? AND index_version <> ?",
+                (site.id, site.index_version),
+            )
+            conn.execute(
+                "DELETE FROM website_pages WHERE website_id = ? AND index_version <> ?",
                 (site.id, site.index_version),
             )
             conn.execute(f"UPDATE websites SET {sets} WHERE id = ?", (*values, site.id))
             return True
 
         return self._write(run)
+
+    def pages(self, website_id: str, index_version: int) -> list[WebsitePage]:
+        rows = self._read(
+            "SELECT * FROM website_pages WHERE website_id = ? AND index_version = ? "
+            "ORDER BY position",
+            (website_id, index_version),
+        )
+        return [WebsitePage.model_validate(dict(r)) for r in rows]
+
+    def chunk_embeddings(self, website_id: str, index_version: int) -> dict[str, tuple[WebsiteChunk, bytes]]:
+        """Chunks of one version WITH their stored embedding blobs, keyed by
+        chunk id (for refreshes that copy unchanged pages without re-embedding)."""
+        rows = self._read(
+            "SELECT * FROM website_chunks WHERE website_id = ? AND index_version = ?",
+            (website_id, index_version),
+        )
+        return {r["id"]: (_chunk_from(r), r["embedding"]) for r in rows}
 
     def chunks(self, website_id: str, index_version: int) -> list[WebsiteChunk]:
         rows = self._read(

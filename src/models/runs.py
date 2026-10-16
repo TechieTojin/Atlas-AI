@@ -132,6 +132,28 @@ class EvaluationResult(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class BranchOrigin(BaseModel):
+    """Where a branched run came from: immutable provenance, set at creation.
+
+    ``context_text`` is a bounded snapshot of the parent node's real stored
+    content (evidence excerpt, query, gap, ...) given to the child's PLANNER
+    as background. It is never a source and never cited.
+    """
+
+    parent_run_id: str
+    parent_title: str = ""
+    node_id: str
+    #: Map node type branched from: question|plan|query|source|evidence|critic.
+    node_type: str
+    #: Short human label of the node (e.g. the query text or source title).
+    context_label: str = ""
+    #: Bounded stored content snapshot shown to the user and the planner.
+    context_text: str = ""
+    #: The user's branch instruction (this IS the child run's question).
+    instruction: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+
+
 class ResearchRun(BaseModel):
     """The persisted record of one research run."""
 
@@ -145,6 +167,8 @@ class ResearchRun(BaseModel):
     custom_template: str = ""
     use_memory: bool = True
     regenerated_from: str = ""
+    #: Set when this run was branched from a Research Map node.
+    branch: BranchOrigin | None = None
     #: Language the report is written in (``src.languages``). Fixed when the run
     #: is created and inherited by regeneration and follow-ups; never derived
     #: from the UI language. Runs from before this field existed are English.

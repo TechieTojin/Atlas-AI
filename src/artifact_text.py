@@ -24,6 +24,7 @@ from src.languages import ENGLISH, parse_output_language
 _TEXT: dict[str, dict[str, str]] = {
     "en": {
         "website.insufficient": "The indexed page does not provide enough information to answer this question.",
+        "documents.insufficient": "The selected documents do not provide enough information to answer this question.",
         "comparison.title": "Comparison",
         "comparison.title_prefix": "Comparison: ",
         "comparison.versus": " vs ",
@@ -63,6 +64,7 @@ _TEXT: dict[str, dict[str, str]] = {
     },
     "es": {
         "website.insufficient": "La página indexada no ofrece información suficiente para responder a esta pregunta.",
+        "documents.insufficient": "Los documentos seleccionados no ofrecen información suficiente para responder a esta pregunta.",
         "comparison.title": "Comparación",
         "comparison.title_prefix": "Comparación: ",
         "comparison.versus": " frente a ",
@@ -103,6 +105,7 @@ _TEXT: dict[str, dict[str, str]] = {
     },
     "fr": {
         "website.insufficient": "La page indexée ne fournit pas assez d’informations pour répondre à cette question.",
+        "documents.insufficient": "Les documents sélectionnés ne fournissent pas suffisamment d’informations pour répondre à cette question.",
         "comparison.title": "Comparaison",
         "comparison.title_prefix": "Comparaison : ",
         "comparison.versus": " contre ",
@@ -142,6 +145,7 @@ _TEXT: dict[str, dict[str, str]] = {
     },
     "de": {
         "website.insufficient": "Die indizierte Seite enthält nicht genügend Informationen, um diese Frage zu beantworten.",
+        "documents.insufficient": "Die ausgewählten Dokumente enthalten nicht genug Informationen, um diese Frage zu beantworten.",
         "comparison.title": "Vergleich",
         "comparison.title_prefix": "Vergleich: ",
         "comparison.versus": " vs. ",
@@ -182,6 +186,7 @@ _TEXT: dict[str, dict[str, str]] = {
     },
     "hi": {
         "website.insufficient": "अनुक्रमित पृष्ठ में इस प्रश्न का उत्तर देने के लिए पर्याप्त जानकारी नहीं है।",
+        "documents.insufficient": "चयनित दस्तावेज़ इस प्रश्न का उत्तर देने के लिए पर्याप्त जानकारी नहीं देते।",
         "comparison.title": "तुलना",
         "comparison.title_prefix": "तुलना: ",
         "comparison.versus": " बनाम ",
@@ -216,6 +221,7 @@ _TEXT: dict[str, dict[str, str]] = {
     },
     "ml": {
         "website.insufficient": "ഈ ചോദ്യത്തിന് ഉത്തരം നൽകാൻ ആവശ്യമായ വിവരങ്ങൾ ഇൻഡക്സ് ചെയ്ത പേജിൽ ഇല്ല.",
+        "documents.insufficient": "തിരഞ്ഞെടുത്ത ഡോക്യുമെന്റുകളിൽ ഈ ചോദ്യത്തിന് ഉത്തരം നൽകാൻ ആവശ്യമായ വിവരങ്ങളില്ല.",
         "comparison.title": "താരതമ്യം",
         "comparison.title_prefix": "താരതമ്യം: ",
         "comparison.versus": " vs ",

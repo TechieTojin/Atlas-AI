@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useI18n } from '../i18n'
 import type { WebsiteCitation, WebsiteSource } from '../types'
 import { safeHttpUrl } from '../utils/safeUrl'
+import { SaveToCollection } from './SaveToCollection'
 import { ExternalIcon, GlobeIcon, XIcon } from './icons'
 
 /**
@@ -93,6 +94,19 @@ export function WebsiteEvidenceDrawer({
               {citation.text}
             </blockquote>
           </section>
+          <div className="drawer-save">
+            <SaveToCollection
+              itemType="website_passage"
+              data={{
+                text: citation.text,
+                title: citation.page_title || website.page_title,
+                url: citation.url,
+                section: citation.section_title,
+                website_id: website.id,
+                citation: citation.index,
+              }}
+            />
+          </div>
           {href && (
             <a className="btn drawer-open-link" href={href} target="_blank" rel="noopener noreferrer">
               <ExternalIcon size={13} />

@@ -196,6 +196,17 @@ export interface Evaluation {
   notes: string[]
 }
 
+export interface BranchOrigin {
+  parent_run_id: string
+  parent_title: string
+  node_id: string
+  node_type: string
+  context_label: string
+  context_text: string
+  instruction: string
+  created_at: string
+}
+
 export interface RunDetail {
   id: string
   query: string
@@ -217,6 +228,7 @@ export interface RunDetail {
   document_ids: string[]
   metrics: Metrics
   evaluation: Evaluation | null
+  branch?: BranchOrigin | null
   project_id?: string | null
   template?: string
   custom_template?: string | null
@@ -538,8 +550,45 @@ export type WebsiteStatus =
   | 'CANCELLED'
 
 /** One indexed webpage (never a crawl). */
+export type WebsiteMode = 'SINGLE' | 'SITE'
+export type WebsitePageStatus = 'INDEXED' | 'FAILED'
+
+export interface WebsitePage {
+  id: string
+  website_id: string
+  index_version: number
+  position: number
+  url: string
+  final_url: string
+  title: string
+  status: WebsitePageStatus
+  error: string
+  error_code: string
+  content_language: string
+  word_count: number
+  chunk_count: number
+  fetched_at: string | null
+}
+
+export interface DiscoveredPage {
+  url: string
+  title: string
+  found_via: 'root' | 'link' | 'sitemap'
+}
+
+export interface WebsiteDiscovery {
+  root_url: string
+  root_title: string
+  pages: DiscoveredPage[]
+  skipped: Record<string, number>
+  robots_applied: boolean
+  max_pages: number
+}
+
 export interface WebsiteSource {
   id: string
+  mode: WebsiteMode
+  page_count: number
   submitted_url: string
   normalized_url: string
   final_url: string
@@ -616,4 +665,190 @@ export interface WebsiteMessage {
 export interface WebsiteConversationDetail {
   conversation: WebsiteConversation
   messages: WebsiteMessage[]
+}
+
+// --- Research Map: how one run was produced (deterministic, from stored data) ---
+
+export type ResearchMapNodeType =
+  | 'question'
+  | 'plan'
+  | 'query'
+  | 'project_memory'
+  | 'source'
+  | 'evidence'
+  | 'critic'
+  | 'synthesis'
+  | 'report'
+  | 'terminal'
+  | 'branch'
+
+export type ResearchMapStatus =
+  | 'completed'
+  | 'running'
+  | 'skipped'
+  | 'timed_out'
+  | 'failed'
+  | 'cancelled'
+  | 'fallback'
+
+export interface ResearchMapNode {
+  id: string
+  type: ResearchMapNodeType
+  label: string
+  status: ResearchMapStatus
+  rank: number
+  iteration: number | null
+  group: string | null
+  started_at: string | null
+  completed_at: string | null
+  duration_ms: number | null
+  data: Record<string, unknown>
+}
+
+export interface ResearchMapEdge {
+  id: string
+  source: string
+  target: string
+  type: string
+  metadata: Record<string, unknown>
+}
+
+export interface ResearchMapGroup {
+  id: string
+  key: string
+  type: ResearchMapNodeType
+  iteration: number | null
+  rank: number
+  members: string[]
+}
+
+export interface ResearchMap {
+  run_id: string
+  run_status: RunStatus
+  question: string
+  mode: string
+  source_scope: string
+  template: string
+  output_language: string
+  live: boolean
+  nodes: ResearchMapNode[]
+  edges: ResearchMapEdge[]
+  groups: ResearchMapGroup[]
+  summary: {
+    node_count: number
+    edge_count: number
+    source_count: number
+    evidence_count: number
+    query_count: number
+    iterations: number | null
+    incomplete_history: boolean
+  }
+  limitations: string[]
+}
+
+// --- Document Chat -------------------------------------------------------------
+
+export interface DocumentConversation {
+  id: string
+  title: string
+  document_ids: string[]
+  output_language: string
+  project_id: string
+  created_at: string
+  updated_at: string
+}
+
+export interface DocumentCitation {
+  index: number
+  document_id: string
+  filename: string
+  page: number | null
+  text: string
+  score: number
+}
+
+export interface DocumentChatMessage {
+  id: string
+  conversation_id: string
+  seq: number
+  role: 'user' | 'assistant'
+  content: string
+  status: WebsiteMessageStatus
+  stage?: WebsiteAnswerStage
+  error: string
+  error_code: string
+  insufficient_evidence: boolean
+  citations: DocumentCitation[]
+  cited: number[]
+  output_language: string
+  metrics: Record<string, unknown>
+  created_at: string
+  completed_at: string | null
+}
+
+export interface DocumentConversationDetail {
+  conversation: DocumentConversation
+  messages: DocumentChatMessage[]
+}
+
+export interface DocumentRelationships {
+  documents: { id: string; filename: string; top_terms: string[] }[]
+  links: { a: string; b: string; type: string; terms: string[]; strength: number }[]
+  method: string
+}
+
+// --- Collections -----------------------------------------------------------------
+
+export type CollectionItemType =
+  | 'run'
+  | 'source'
+  | 'evidence'
+  | 'document'
+  | 'document_passage'
+  | 'website_passage'
+  | 'note'
+
+export interface Collection {
+  id: string
+  title: string
+  description: string
+  project_id: string
+  created_at: string
+  updated_at: string
+  item_count?: number
+}
+
+export interface CollectionItem {
+  id: string
+  collection_id: string
+  type: CollectionItemType
+  position: number
+  note: string
+  data: Record<string, unknown>
+  created_at: string
+  origin_exists?: boolean
+}
+
+// --- Research Timeline --------------------------------------------------------------
+
+export interface TimelineEntry {
+  seq: number
+  at: string
+  offset_ms: number
+  kind: EventType | string
+  agent: string
+  iteration: number
+  detail: Record<string, unknown>
+}
+
+export interface RunTimeline {
+  run_id: string
+  run_status: RunStatus
+  question: string
+  started_at: string | null
+  completed_at: string | null
+  duration_ms: number | null
+  entries: TimelineEntry[]
+  iterations: number | null
+  incomplete: boolean
 }

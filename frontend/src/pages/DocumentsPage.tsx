@@ -1,4 +1,5 @@
 import { useId, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { errorMessage } from '../api/client'
 import { DocumentsHeroArt } from '../components/art/DocumentsHeroArt'
 import { DocumentStatus, DocumentTable, fileTypeLabel } from '../components/DocumentTable'
@@ -62,6 +63,7 @@ function sortDocuments(documents: DocumentRecord[], sort: SortKey): DocumentReco
 
 export function DocumentsPage() {
   const { t, format } = useI18n()
+  const navigate = useNavigate()
   const { documents, loading, error, upload, remove } = useDocuments()
   const [uploading, setUploading] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -309,6 +311,16 @@ export function DocumentsPage() {
       {selected.length > 0 && (
         <div className="selection-bar" role="status">
           <span>{t('documents.selected', { count: selected.length })}</span>
+          <button
+            type="button"
+            className="btn primary compact"
+            onClick={() =>
+              navigate(`/documents/chat?ids=${selected.map(encodeURIComponent).join(',')}`)
+            }
+          >
+            <SparklesIcon size={14} />
+            <span>{t('documentChat.askAction')}</span>
+          </button>
           <button type="button" className="btn danger-ghost compact" onClick={() => void handleDeleteSelected()}>
             <TrashIcon size={14} />
             {t('documents.deleteSelected')}

@@ -544,3 +544,67 @@ export function AtlasMark({ size, className }: IconProps) {
     </svg>
   )
 }
+
+export function PlayIcon({ size, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M7 4.5v15l13-7.5z" />
+    </svg>
+  )
+}
+
+export function PauseIcon({ size, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M8 5v14M16 5v14" />
+    </svg>
+  )
+}
+
+export function SkipBackIcon({ size, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M17 5.5v13l-9-6.5z" />
+      <path d="M6 5v14" />
+    </svg>
+  )
+}
+
+export function SkipForwardIcon({ size, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M7 5.5v13l9-6.5z" />
+      <path d="M18 5v14" />
+    </svg>
+  )
+}
+
+export function BookmarkIcon({ size, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M6.5 3.5h11a.9.9 0 0 1 .9.9V21l-6.4-4.1L5.6 21V4.4a.9.9 0 0 1 .9-.9z" />
+    </svg>
+  )
+}
+
+export function GitBranchIcon({ size, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <circle cx="6" cy="5" r="2.4" />
+      <circle cx="6" cy="19" r="2.4" />
+      <circle cx="18" cy="8" r="2.4" />
+      <path d="M6 7.4v9.2" />
+      <path d="M18 10.4c0 3.4-3 4.6-6 4.8-2.6.2-4.6 1-5.4 2.6" />
+    </svg>
+  )
+}
+
+export function NotebookIcon({ size, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="5" y="3.5" width="15" height="17" rx="2" />
+      <path d="M9 3.5V20.5" />
+      <path d="M12.5 8h4M12.5 12h4" />
+    </svg>
+  )
+}

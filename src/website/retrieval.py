@@ -26,6 +26,9 @@ logger = logging.getLogger(__name__)
 
 TOP_K = 6
 LEXICAL_WEIGHT = 0.15
+#: SITE mode: at most this many of the selected chunks may come from ONE page
+#: (page diversity; a near-duplicate page never crowds out real breadth).
+PER_PAGE_CAP = 3
 #: Extra score when a chunk contains a figure the user quoted ("3.8%", "2009").
 #: Quoted figures are very specific; spread over all question terms they were
 #: too weak to beat 0.01 cosine differences (live: the passage stating 3.8% was
@@ -94,9 +97,41 @@ def wants_context(question: str) -> bool:
     )
 
 
-def document_text(site: WebsiteSource, section: str, text: str, prefixed: bool) -> str:
-    body = f"{site.page_title}\n{section}\n\n{text}" if section else f"{site.page_title}\n\n{text}"
+def document_text(
+    site: WebsiteSource, section: str, text: str, prefixed: bool, title: str | None = None
+) -> str:
+    """Embedded document text; ``title`` overrides the site title (SITE-mode
+    pages embed their own page title so retrieval can tell pages apart)."""
+    heading = title if title is not None else site.page_title
+    body = f"{heading}\n{section}\n\n{text}" if section else f"{heading}\n\n{text}"
     return (DOCUMENT_PREFIX if prefixed else "") + body
+
+
+def diversify(items: list["Retrieved"], top_k: int, per_page: int = PER_PAGE_CAP) -> list["Retrieved"]:
+    """Top ``top_k`` by score, but at most ``per_page`` chunks per page.
+
+    Deterministic: score order is kept; overflow chunks of an over-represented
+    page only return when nothing else can fill the quota. SINGLE-mode chunks
+    (no page id) are never capped — V1 behaviour is unchanged.
+    """
+    chosen: list[Retrieved] = []
+    overflow: list[Retrieved] = []
+    per_page_counts: dict[str, int] = {}
+    for item in items:
+        page = item.chunk.page_id
+        if page and per_page_counts.get(page, 0) >= per_page:
+            overflow.append(item)
+            continue
+        if page:
+            per_page_counts[page] = per_page_counts.get(page, 0) + 1
+        chosen.append(item)
+        if len(chosen) == top_k:
+            return chosen
+    for item in overflow:
+        chosen.append(item)
+        if len(chosen) == top_k:
+            break
+    return chosen
 
 
 @dataclass
@@ -144,7 +179,9 @@ def retrieve(
         score = cosine + lexical_weight * lexical + FIGURE_WEIGHT * figure
         items.append(Retrieved(chunk, score, cosine, lexical))
     items.sort(key=lambda item: (-item.score, item.chunk.chunk_index))
-    result = RetrievalResult(items[:top_k], queries, int((time.perf_counter() - start) * 1000))
+    result = RetrievalResult(
+        diversify(items, top_k), queries, int((time.perf_counter() - start) * 1000)
+    )
     logger.info(
         "Website retrieval %s: %d ms, top %s",
         site.id,

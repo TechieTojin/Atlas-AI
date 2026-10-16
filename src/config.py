@@ -77,9 +77,16 @@ DEFAULT_COMPARISON_TIMEOUT_SECONDS = 750
 # Website Chat: grounded answers are short; the deadline covers the slower
 # multilingual routes (gemma4:e4b writes ~3.4 tokens/s on CPU).
 DEFAULT_WEBSITE_CHAT_MAX_TOKENS = 700
+DEFAULT_DOCUMENT_CHAT_MAX_TOKENS = 700
+#: Whole-answer deadline (all attempts); 360 s is also the hard ceiling.
+DEFAULT_DOCUMENT_CHAT_TIMEOUT_SECONDS = 360
 #: Whole-answer deadline (all attempts); 360 s is also the hard ceiling.
 DEFAULT_WEBSITE_CHAT_TIMEOUT_SECONDS = 360
 DEFAULT_WEBSITE_MAX_BYTES = 3_000_000
+#: SITE mode: most pages one website source may index (user selects them).
+DEFAULT_WEBSITE_MAX_PAGES = 20
+#: SITE mode: total chunk budget across all pages of one website.
+DEFAULT_WEBSITE_SITE_MAX_CHUNKS = 1200
 DEFAULT_WEBSITE_MAX_CHUNKS = 300
 
 DEFAULT_KG_MAX_NODES = 40
@@ -185,8 +192,12 @@ class AtlasConfig:
     comparison_timeout_seconds: int = DEFAULT_COMPARISON_TIMEOUT_SECONDS
     website_chat_max_tokens: int = DEFAULT_WEBSITE_CHAT_MAX_TOKENS
     website_chat_timeout_seconds: int = DEFAULT_WEBSITE_CHAT_TIMEOUT_SECONDS
+    document_chat_max_tokens: int = DEFAULT_DOCUMENT_CHAT_MAX_TOKENS
+    document_chat_timeout_seconds: int = DEFAULT_DOCUMENT_CHAT_TIMEOUT_SECONDS
     website_max_bytes: int = DEFAULT_WEBSITE_MAX_BYTES
     website_max_chunks: int = DEFAULT_WEBSITE_MAX_CHUNKS
+    website_max_pages: int = DEFAULT_WEBSITE_MAX_PAGES
+    website_site_max_chunks: int = DEFAULT_WEBSITE_SITE_MAX_CHUNKS
     kg_max_nodes: int = DEFAULT_KG_MAX_NODES
     kg_max_edges: int = DEFAULT_KG_MAX_EDGES
     pdf_font_path: str = ""
@@ -331,8 +342,18 @@ def load_config(dotenv_path: str | None = None) -> AtlasConfig:
         website_chat_timeout_seconds=_int_env(
             "ATLAS_WEBSITE_CHAT_TIMEOUT_SECONDS", DEFAULT_WEBSITE_CHAT_TIMEOUT_SECONDS
         ),
+        document_chat_max_tokens=_int_env(
+            "ATLAS_DOCUMENT_CHAT_MAX_TOKENS", DEFAULT_DOCUMENT_CHAT_MAX_TOKENS
+        ),
+        document_chat_timeout_seconds=_int_env(
+            "ATLAS_DOCUMENT_CHAT_TIMEOUT_SECONDS", DEFAULT_DOCUMENT_CHAT_TIMEOUT_SECONDS
+        ),
         website_max_bytes=_int_env("ATLAS_WEBSITE_MAX_BYTES", DEFAULT_WEBSITE_MAX_BYTES),
         website_max_chunks=_int_env("ATLAS_WEBSITE_MAX_CHUNKS", DEFAULT_WEBSITE_MAX_CHUNKS),
+        website_max_pages=_int_env("ATLAS_WEBSITE_MAX_PAGES", DEFAULT_WEBSITE_MAX_PAGES, minimum=1),
+        website_site_max_chunks=_int_env(
+            "ATLAS_WEBSITE_SITE_MAX_CHUNKS", DEFAULT_WEBSITE_SITE_MAX_CHUNKS, minimum=1
+        ),
         kg_max_nodes=_int_env("ATLAS_KG_MAX_NODES", DEFAULT_KG_MAX_NODES),
         kg_max_edges=_int_env("ATLAS_KG_MAX_EDGES", DEFAULT_KG_MAX_EDGES),
         pdf_font_path=os.getenv("ATLAS_PDF_FONT", "").strip(),

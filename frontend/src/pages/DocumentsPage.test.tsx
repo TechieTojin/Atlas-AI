@@ -1,10 +1,14 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render as baseRender, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeDocument } from '../test/fixtures'
 import { installFetchMock } from '../test/mockFetch'
 import type { DocumentRecord } from '../types'
 import { DocumentsPage } from './DocumentsPage'
+
+/** The page uses router hooks, so every render needs a router around it. */
+const render = (ui: React.ReactElement) => baseRender(<MemoryRouter>{ui}</MemoryRouter>)
 
 describe('DocumentsPage', () => {
   let documents: DocumentRecord[]

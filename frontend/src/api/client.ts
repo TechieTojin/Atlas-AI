@@ -12,7 +12,17 @@ import type {
   Project,
   ProjectOverview,
   ProjectWithCounts,
+  Collection,
+  CollectionItem,
+  DocumentConversation,
+  DocumentConversationDetail,
+  DocumentChatMessage,
+  DocumentRelationships,
+  ResearchMap,
   RunDetail,
+  RunTimeline,
+  WebsiteDiscovery,
+  WebsitePage,
   RunMode,
   RunSummary,
   SourceScope,
@@ -107,7 +117,7 @@ export interface LanguageCapability {
   features?: Partial<Record<OutputFeature, { status?: string; supported: boolean; reason: string }>>
 }
 
-export type OutputFeature = 'report' | 'followup' | 'comparison' | 'website_chat'
+export type OutputFeature = 'report' | 'followup' | 'comparison' | 'website_chat' | 'document_chat'
 
 export interface LanguageCapabilities {
   default_output_language: string
@@ -162,6 +172,13 @@ export const api = {
   health: () => request<HealthResponse>('/health'),
 
   // Website Chat
+  discoverWebsite: (url: string) =>
+    request<WebsiteDiscovery>('/websites/discover', jsonInit('POST', { url })),
+  createWebsiteSite: (url: string, pageUrls: string[]) =>
+    request<WebsiteSource & { existing?: boolean }>(
+      '/websites', jsonInit('POST', { url, mode: 'SITE', page_urls: pageUrls }),
+    ),
+  getWebsitePages: (id: string) => request<{ pages: WebsitePage[] }>(`/websites/${id}/pages`),
   createWebsite: (url: string) => request<WebsiteSource>('/websites', jsonInit('POST', { url })),
   listWebsites: () => request<{ websites: WebsiteSource[] }>('/websites'),
   getWebsite: (id: string) => request<WebsiteSource>(`/websites/${id}`),
@@ -186,6 +203,48 @@ export const api = {
     ),
   cancelWebsiteMessage: (id: string) =>
     request<WebsiteMessage>(`/website-messages/${id}/cancel`, { method: 'POST' }),
+
+  // --- document chat -----------------------------------------------------------
+  createDocumentConversation: (documentIds: string[], outputLanguage: string) =>
+    request<DocumentConversationDetail>(
+      '/document-conversations',
+      jsonInit('POST', { document_ids: documentIds, output_language: outputLanguage }),
+    ),
+  listDocumentConversations: () =>
+    request<{ conversations: DocumentConversation[] }>('/document-conversations'),
+  getDocumentConversation: (id: string) =>
+    request<DocumentConversationDetail>(`/document-conversations/${id}`),
+  deleteDocumentConversation: (id: string) =>
+    request<void>(`/document-conversations/${id}`, { method: 'DELETE' }),
+  askDocuments: (conversationId: string, question: string) =>
+    request<{ user: DocumentChatMessage; answer: DocumentChatMessage }>(
+      `/document-conversations/${conversationId}/messages`, jsonInit('POST', { question }),
+    ),
+  cancelDocumentMessage: (id: string) =>
+    request<DocumentChatMessage>(`/document-messages/${id}/cancel`, { method: 'POST' }),
+  getDocumentRelationships: (ids: string[]) =>
+    request<DocumentRelationships>(`/documents/relationships?ids=${ids.map(encodeURIComponent).join(',')}`),
+
+  // --- collections ----------------------------------------------------------------
+  listCollections: () => request<{ collections: Collection[] }>('/collections'),
+  createCollection: (body: { title: string; description?: string; project_id?: string }) =>
+    request<Collection>('/collections', jsonInit('POST', body)),
+  getCollection: (id: string) =>
+    request<{ collection: Collection; items: CollectionItem[] }>(`/collections/${id}`),
+  updateCollection: (id: string, body: { title?: string; description?: string }) =>
+    request<Collection>(`/collections/${id}`, jsonInit('PATCH', body)),
+  deleteCollection: (id: string) => request<void>(`/collections/${id}`, { method: 'DELETE' }),
+  addCollectionItem: (
+    collectionId: string,
+    body: { type: string; note?: string; data: Record<string, unknown> },
+  ) =>
+    request<CollectionItem & { existing?: boolean }>(
+      `/collections/${collectionId}/items`, jsonInit('POST', body),
+    ),
+  updateCollectionItem: (itemId: string, note: string) =>
+    request<{ ok: boolean }>(`/collection-items/${itemId}`, jsonInit('PATCH', { note })),
+  deleteCollectionItem: (itemId: string) =>
+    request<void>(`/collection-items/${itemId}`, { method: 'DELETE' }),
 
   createRun: (body: CreateRunRequest) => request<RunDetail>('/runs', jsonInit('POST', body)),
 
@@ -217,6 +276,12 @@ export const api = {
   regenerateRun: (id: string, body: RegenerateRequest) =>
     request<RunDetail>(`/runs/${id}/regenerate`, jsonInit('POST', body)),
 
+  getResearchMap: (id: string) => request<ResearchMap>(`/runs/${id}/research-map`),
+  getRunTimeline: (id: string) => request<RunTimeline>(`/runs/${id}/timeline`),
+  createBranch: (
+    runId: string,
+    body: { node_id: string; instruction: string; mode?: string; source_scope?: string; output_language?: string },
+  ) => request<RunDetail>(`/runs/${runId}/branches`, jsonInit('POST', body)),
   getRunClaims: (id: string) => request<{ claims: Claim[] }>(`/runs/${id}/claims`),
 
   listTemplates: () => request<{ templates: TemplateInfo[] }>('/templates'),

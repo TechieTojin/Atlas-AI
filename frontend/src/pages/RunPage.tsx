@@ -9,6 +9,7 @@ import { RunTabs } from '../components/RunTabs'
 import { StatusBadge } from '../components/StatusBadge'
 import { RunStatChips, Timeline } from '../components/Timeline'
 import {
+  GitBranchIcon,
   ArrowLeftIcon,
   BoltIcon,
   ChevronRightIcon,
@@ -20,6 +21,7 @@ import {
 } from '../components/icons'
 import { useRun } from '../hooks/useRun'
 import { useRunEvents } from '../hooks/useRunEvents'
+import { ResearchMap } from '../components/ResearchMap'
 import { agoLabel, modeBadge, templateName, useI18n } from '../i18n'
 import type { EventType, RunDetail } from '../types'
 import { isActiveStatus } from '../types'
@@ -343,6 +345,18 @@ export function RunPage() {
         {run.status === 'COMPLETED' && <ReportHeroArt label={templateName(t, run.template)} />}
       </header>
 
+      {run.branch && (
+        <p className="run-branch-banner" role="note">
+          <GitBranchIcon size={13} />
+          <span>
+            {t('researchMap.branchedFrom')}{' '}
+            <Link to={`/runs/${run.branch.parent_run_id}`}>{run.branch.parent_title}</Link>
+            {' · '}
+            {t(`researchMap.type.${run.branch.node_type as 'evidence'}`)}
+          </span>
+        </p>
+      )}
+
       {actionError && (
         <p className="form-error" role="alert">
           {actionError}
@@ -381,6 +395,12 @@ export function RunPage() {
             {t('common.startNewResearch')}
           </Link>
         </section>
+      )}
+
+      {(run.status === 'FAILED' || run.status === 'CANCELLED') && (
+        <div className="glass-card panel-card">
+          <ResearchMap runId={run.id} />
+        </div>
       )}
     </div>
   )

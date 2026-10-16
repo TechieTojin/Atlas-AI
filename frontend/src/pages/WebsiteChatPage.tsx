@@ -6,6 +6,7 @@ import {
   ArrowLeftIcon,
   ArrowUpIcon,
   CheckIcon,
+  ChevronRightIcon,
   ExternalIcon,
   GlobeIcon,
   LinkIcon,
@@ -20,9 +21,11 @@ import { EyebrowPill, FeaturePill } from '../components/PageHero'
 import { WebsiteEvidenceDrawer } from '../components/WebsiteEvidenceDrawer'
 import { agoLabel, artifactLang, languageName, useI18n, useOutputLanguage, type Translate } from '../i18n'
 import type {
+  DiscoveredPage,
   Source,
   WebsiteAnswerStage,
   WebsiteCitation,
+  WebsitePage,
   WebsiteConversation,
   WebsiteMessage,
   WebsiteSource,
@@ -211,9 +214,18 @@ function WebsiteHome() {
 function UrlForm({ onIndexed }: { onIndexed: (site: WebsiteSource) => void }) {
   const { t } = useI18n()
   const [url, setUrl] = useState('')
+  const [mode, setMode] = useState<'SINGLE' | 'SITE'>('SINGLE')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [errorCode, setErrorCode] = useState('')
+  const [discovery, setDiscovery] = useState<{
+    rootUrl: string
+    maxPages: number
+    robots: boolean
+    skipped: Record<string, number>
+    pages: DiscoveredPage[]
+  } | null>(null)
+  const [chosen, setChosen] = useState<Set<string>>(() => new Set())
   const inputId = useId()
   const errorId = useId()
 
@@ -224,12 +236,49 @@ function UrlForm({ onIndexed }: { onIndexed: (site: WebsiteSource) => void }) {
     setError(null)
     setErrorCode('')
     try {
-      onIndexed(await api.createWebsite(url.trim()))
+      if (mode === 'SINGLE') {
+        onIndexed(await api.createWebsite(url.trim()))
+        return
+      }
+      const found = await api.discoverWebsite(url.trim())
+      setDiscovery({
+        rootUrl: found.root_url,
+        maxPages: found.max_pages,
+        robots: found.robots_applied,
+        skipped: found.skipped,
+        pages: found.pages,
+      })
+      // Default selection: the first pages up to the cap (the root is always kept).
+      setChosen(new Set(found.pages.slice(0, found.max_pages).map((page) => page.url)))
+      setBusy(false)
     } catch (err) {
       setError(errorFrom(t, err))
       setErrorCode(err instanceof ApiError ? err.code : '')
       setBusy(false)
     }
+  }
+
+  const indexSelected = async () => {
+    if (!discovery || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      onIndexed(await api.createWebsiteSite(discovery.rootUrl, [...chosen]))
+    } catch (err) {
+      setError(errorFrom(t, err))
+      setErrorCode(err instanceof ApiError ? err.code : '')
+      setBusy(false)
+    }
+  }
+
+  const togglePage = (page: DiscoveredPage) => {
+    if (page.url === discovery?.rootUrl) return // the root is always indexed
+    setChosen((current) => {
+      const next = new Set(current)
+      if (next.has(page.url)) next.delete(page.url)
+      else next.add(page.url)
+      return next
+    })
   }
 
   return (
@@ -256,10 +305,108 @@ function UrlForm({ onIndexed }: { onIndexed: (site: WebsiteSource) => void }) {
           />
         </span>
         <button type="submit" className="btn primary glow" disabled={!url.trim() || busy}>
-          <span>{busy ? t('websiteChat.processing') : t('websiteChat.process')}</span>
+          <span>
+            {busy
+              ? t('websiteChat.processing')
+              : mode === 'SITE'
+                ? t('websiteChat.discover')
+                : t('websiteChat.process')}
+          </span>
         </button>
       </div>
-      <p className="website-scope-note">{t('websiteChat.scopeNote')}</p>
+      <div className="website-mode-toggle" role="radiogroup" aria-label={t('websiteChat.modeLabel')}>
+        <label className={`website-mode-option${mode === 'SINGLE' ? ' active' : ''}`}>
+          <input
+            type="radio"
+            name="website-mode"
+            value="SINGLE"
+            checked={mode === 'SINGLE'}
+            onChange={() => {
+              setMode('SINGLE')
+              setDiscovery(null)
+            }}
+          />
+          <span>{t('websiteChat.modeSingle')}</span>
+        </label>
+        <label className={`website-mode-option${mode === 'SITE' ? ' active' : ''}`}>
+          <input
+            type="radio"
+            name="website-mode"
+            value="SITE"
+            checked={mode === 'SITE'}
+            onChange={() => setMode('SITE')}
+          />
+          <span>{t('websiteChat.modeSite')}</span>
+        </label>
+      </div>
+      <p className="website-scope-note">
+        {mode === 'SINGLE' ? t('websiteChat.scopeNote') : t('websiteChat.scopeNoteSite')}
+      </p>
+      {discovery && mode === 'SITE' && (
+        <section className="website-discovery" aria-label={t('websiteChat.discovery.title')}>
+          <div className="website-discovery-head">
+            <h3 className="panel-heading">{t('websiteChat.discovery.title')}</h3>
+            <p className="hint-text">
+              {t('websiteChat.discovery.found', {
+                count: String(discovery.pages.length),
+                max: String(discovery.maxPages),
+              })}
+              {discovery.robots ? ` ${t('websiteChat.discovery.robots')}` : ''}
+            </p>
+          </div>
+          <ul className="website-discovery-list">
+            {discovery.pages.map((page) => {
+              const isRoot = page.url === discovery.rootUrl
+              const checked = chosen.has(page.url)
+              const disabled =
+                isRoot || busy || (!checked && chosen.size >= discovery.maxPages)
+              return (
+                <li key={page.url}>
+                  <label className="website-discovery-page">
+                    <input
+                      type="checkbox"
+                      checked={checked || isRoot}
+                      disabled={disabled}
+                      onChange={() => togglePage(page)}
+                    />
+                    <span className="website-discovery-text">
+                      <span className="website-discovery-title">
+                        {page.title || page.url}
+                        {isRoot ? ` · ${t('websiteChat.discovery.root')}` : ''}
+                      </span>
+                      <span className="website-discovery-url">{page.url}</span>
+                    </span>
+                  </label>
+                </li>
+              )
+            })}
+          </ul>
+          <div className="website-discovery-actions">
+            <span className="hint-text">
+              {t('websiteChat.discovery.selected', {
+                count: String(chosen.size),
+                max: String(discovery.maxPages),
+              })}
+            </span>
+            <button
+              type="button"
+              className="btn primary compact"
+              disabled={busy || chosen.size === 0}
+              onClick={() => void indexSelected()}
+            >
+              {busy ? t('websiteChat.processing') : t('websiteChat.discovery.index')}
+            </button>
+            <button
+              type="button"
+              className="btn light compact"
+              disabled={busy}
+              onClick={() => setDiscovery(null)}
+            >
+              {t('websiteChat.discovery.cancel')}
+            </button>
+          </div>
+        </section>
+      )}
       {error && (
         <p id={errorId} className="form-error" role="alert">
           {error}
@@ -277,10 +424,20 @@ function UrlForm({ onIndexed }: { onIndexed: (site: WebsiteSource) => void }) {
 
 // --- detail: progress, metadata, chat ---------------------------------------------
 
-function StageProgress({ status }: { status: WebsiteStatus }) {
+function StageProgress({ site }: { site: WebsiteSource }) {
   const { t } = useI18n()
+  const status = site.status
   const current = status === 'PENDING' ? -1 : STAGES.indexOf(status as (typeof STAGES)[number])
-  const label = current >= 0 ? t(`websiteChat.stages.${STAGES[current]}`) : t('websiteChat.queued')
+  const metrics = site.metrics as { pages_done?: number; pages_total?: number }
+  const pages =
+    site.mode === 'SITE' && status === 'FETCHING' && typeof metrics.pages_total === 'number'
+      ? t('websiteChat.fetchingPages', {
+          done: String(Math.min((metrics.pages_done ?? 0) + 1, metrics.pages_total)),
+          total: String(metrics.pages_total),
+        })
+      : null
+  const label =
+    pages ?? (current >= 0 ? t(`websiteChat.stages.${STAGES[current]}`) : t('websiteChat.queued'))
   return (
     <div className="website-progress">
       <ol className="website-stages" aria-label={t('websiteChat.stagesLabel')}>
@@ -440,14 +597,16 @@ function WebsiteDetail({ websiteId }: { websiteId: string }) {
         </div>
       </header>
 
-      {existingNote && site.is_indexed && <p className="website-notice">{t('websiteChat.existing')}</p>}
+      {existingNote && site.is_indexed && !active && (
+        <p className="website-notice">{t('websiteChat.existing')}</p>
+      )}
       {actionError && (
         <p className="form-error" role="alert">
           {actionError}
         </p>
       )}
 
-      {active && <StageProgress status={site.status} />}
+      {active && <StageProgress site={site} />}
 
       {!active && refreshNote && site.is_indexed && (
         <p className="website-notice" role="status">
@@ -508,7 +667,14 @@ function WebsiteDetail({ websiteId }: { websiteId: string }) {
                 <dd>{pageLanguageName(site.content_language, ui.locale)}</dd>
               </div>
             )}
+            {site.mode === 'SITE' && (
+              <div>
+                <dt>{t('websiteChat.meta.pages')}</dt>
+                <dd>{format.number(site.page_count)}</dd>
+              </div>
+            )}
           </dl>
+          {site.mode === 'SITE' && <PagesPanel site={site} />}
           <WebsiteChat site={site} />
         </>
       )}
@@ -565,7 +731,7 @@ function ElapsedTimer({ since }: { since: number }) {
 }
 
 /** The temporary Atlas reply while an answer is written: real stage, elapsed time, Cancel. */
-function AnsweringCard({
+export function AnsweringCard({
   stage,
   since,
   sending = false,
@@ -599,7 +765,7 @@ function AnsweringCard({
 }
 
 /** An answer that could not be completed: the question stays, with a reason and a retry. */
-function AnswerProblem({ title, detail, onRetry }: { title: string; detail: string | null; onRetry?: () => void }) {
+export function AnswerProblem({ title, detail, onRetry }: { title: string; detail: string | null; onRetry?: () => void }) {
   const { t } = useI18n()
   return (
     <div className="website-answer-problem" role="alert">
@@ -660,6 +826,79 @@ function useConversation(conversationId: string | null) {
     return () => window.clearInterval(timer)
   }, [pending, load])
   return { conversation, messages, error, reload: load, merge, pending }
+}
+
+function PagesPanel({ site }: { site: WebsiteSource }) {
+  const { t, format } = useI18n()
+  const [pages, setPages] = useState<WebsitePage[] | null>(null)
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    api
+      .getWebsitePages(site.id)
+      .then((body) => {
+        if (!cancelled) setPages(body.pages)
+      })
+      .catch(() => {
+        if (!cancelled) setPages([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [site.id, site.index_version])
+  if (!pages || pages.length === 0) return null
+  const failed = pages.filter((page) => page.status === 'FAILED')
+  return (
+    <section className="website-pages glass-card" aria-label={t('websiteChat.pages.title')}>
+      <button
+        type="button"
+        className="website-pages-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <ChevronRightIcon size={14} className={`website-pages-chevron${open ? ' open' : ''}`} />
+        <span className="panel-heading">{t('websiteChat.pages.title')}</span>
+        <span className="hint-text">
+          {t('websiteChat.pages.summary', {
+            indexed: String(pages.length - failed.length),
+            total: String(pages.length),
+          })}
+        </span>
+      </button>
+      {open && (
+        <ul className="website-pages-list">
+          {pages.map((page) => {
+            const href = safeHttpUrl(page.final_url || page.url)
+            return (
+              <li key={page.id} className={`website-page-row status-${page.status.toLowerCase()}`}>
+                <span className="website-page-main">
+                  <span className="website-page-title">{page.title || page.url}</span>
+                  {href ? (
+                    <a className="website-url" href={href} target="_blank" rel="noopener noreferrer">
+                      {page.url}
+                    </a>
+                  ) : (
+                    <span className="website-url">{page.url}</span>
+                  )}
+                </span>
+                {page.status === 'FAILED' ? (
+                  <span className="website-page-state failed">
+                    {t('websiteChat.pages.failed')} · {websiteErrorText(t, page.error_code)}
+                  </span>
+                ) : (
+                  <span className="website-page-state">
+                    {t('websiteChat.pages.indexedState', {
+                      words: format.number(page.word_count),
+                    })}
+                  </span>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
+  )
 }
 
 function WebsiteChat({ site }: { site: WebsiteSource }) {

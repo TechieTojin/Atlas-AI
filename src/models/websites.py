@@ -1,6 +1,8 @@
-"""Website Chat models: one indexed webpage, its chunks, and conversations.
+"""Website Chat models: an indexed website, its pages/chunks, conversations.
 
-A ``WebsiteSource`` is ONE submitted webpage (never a crawl). Its extracted
+A ``WebsiteSource`` is either ONE submitted webpage (``SINGLE``, the V1
+behaviour and still the default) or a user-selected, bounded set of same-site
+pages (``SITE``). It is never an open-ended crawl. Its extracted
 text is split into ``WebsiteChunk`` rows that carry section provenance, and
 every Atlas answer cites those chunks. Generated text lives in conversations
 (each with its own ``output_language``); the website record itself only
@@ -42,6 +44,39 @@ _ACTIVE = {
 }
 
 
+class WebsiteMode(str, Enum):
+    #: Exactly the V1 behaviour: the one submitted page.
+    SINGLE = "SINGLE"
+    #: A bounded, user-selected set of same-site pages.
+    SITE = "SITE"
+
+
+class PageStatus(str, Enum):
+    INDEXED = "INDEXED"
+    FAILED = "FAILED"
+
+
+class WebsitePage(BaseModel):
+    """One page of a SITE-mode website, versioned together with its chunks."""
+
+    id: str = Field(default_factory=new_id)
+    website_id: str
+    index_version: int
+    #: Stable user-selection order; also the tiebreaker everywhere.
+    position: int
+    url: str
+    final_url: str = ""
+    title: str = ""
+    status: PageStatus = PageStatus.INDEXED
+    error: str = ""
+    error_code: str = ""
+    content_hash: str = ""
+    content_language: str = ""
+    word_count: int = 0
+    chunk_count: int = 0
+    fetched_at: datetime | None = None
+
+
 class WebsiteSource(BaseModel):
     id: str = Field(default_factory=new_id)
     submitted_url: str
@@ -68,6 +103,10 @@ class WebsiteSource(BaseModel):
     updated_at: datetime = Field(default_factory=utcnow)
     #: Per-stage ingestion timings and counts (no LLM calls, ever).
     metrics: dict = Field(default_factory=dict)
+    #: SINGLE (V1, default) or SITE (bounded multi-page). Never changes.
+    mode: WebsiteMode = WebsiteMode.SINGLE
+    #: Successfully indexed pages of the live version (0 for SINGLE mode).
+    page_count: int = 0
 
     @property
     def is_indexed(self) -> bool:
@@ -86,6 +125,10 @@ class WebsiteChunk(BaseModel):
     #: Character offsets into the cleaned page text (provenance).
     char_start: int = 0
     char_end: int = 0
+    #: SITE mode: which page this chunk came from ("" for SINGLE-mode chunks).
+    page_id: str = ""
+    page_url: str = ""
+    page_title: str = ""
 
 
 class WebsiteConversation(BaseModel):

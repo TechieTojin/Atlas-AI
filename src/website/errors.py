@@ -47,6 +47,10 @@ UNSUPPORTED_CONTENT = "unsupported_content"
 HTTP_ERROR = "http_error"
 ACCESS_RESTRICTED = "access_restricted"
 EMPTY_CONTENT = "empty_content"
+#: SITE mode: none of the selected pages could be indexed.
+NO_PAGES = "no_pages"
+#: SITE mode: the selected pages are invalid (offsite, too many, ...).
+INVALID_PAGES = "invalid_pages"
 JS_REQUIRED = "js_required"
 TOO_LONG = "too_long"
 EMBEDDING_FAILED = "embedding_failed"

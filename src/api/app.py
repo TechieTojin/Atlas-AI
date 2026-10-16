@@ -18,6 +18,14 @@ from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 
 from src.api.container import Container
 from src.api.schemas import (
+    AddCollectionItemRequest,
+    CreateBranchRequest,
+    CreateCollectionRequest,
+    CreateDocumentConversationRequest,
+    DiscoverWebsiteRequest,
+    DocumentQuestionRequest,
+    UpdateCollectionItemRequest,
+    UpdateCollectionRequest,
     CreateComparisonRequest,
     CreateFollowUpRequest,
     CreateProjectRequest,
@@ -32,7 +40,7 @@ from src.api.schemas import (
     CreateWebsiteRequest,
     WebsiteQuestionRequest,
 )
-from src.website.errors import WebsiteError
+from src.website.errors import WebsiteError, WebsiteNotFoundError
 from src.config import ConfigError
 from src.languages import UnknownLanguageError
 from src.model_capabilities import UnsupportedOutputLanguageError
@@ -66,6 +74,7 @@ def create_app(container: Container | None = None) -> FastAPI:
         app_.state.container.research_service.recover_interrupted_runs()
         app_.state.container.comparison_service.recover_interrupted_comparisons()
         app_.state.container.website_chat_service.recover_interrupted()
+        app_.state.container.document_chat_service.recover_interrupted()
         # Makes research completed before project memory existed reusable.
         app_.state.container.research_service.backfill_project_memory()
         yield
@@ -239,6 +248,72 @@ def create_app(container: Container | None = None) -> FastAPI:
         run = ctn(request).research_service.get_run(run_id)
         claims = extract_claims(run.final_report, len(run.selected_sources))
         return {"claims": [c.model_dump() for c in claims]}
+
+    @app.post("/api/runs/{run_id}/branches", status_code=201, response_model=RunDetailResponse)
+    def create_branch(request: Request, run_id: str, body: CreateBranchRequest):
+        """Start a NEW research run from one node of this run's Research Map.
+
+        The parent run is never modified; the child records its provenance and
+        gives the parent node's stored content (bounded) to its planner as
+        background. New claims cite only newly retrieved sources.
+        """
+        from src.models.runs import BranchOrigin
+        from src.services.research_map import branch_context_for, build_research_map
+
+        container = ctn(request)
+        parent = container.research_service.get_run(run_id)
+        parent_map = build_research_map(parent, container.events_repo.list(run_id))
+        node = next((n for n in parent_map["nodes"] if n["id"] == body.node_id), None)
+        if node is None:
+            raise PlanValidationError("This node does not exist on the parent's Research Map.")
+        try:
+            label, context = branch_context_for(node)
+        except ValueError as exc:
+            raise PlanValidationError(str(exc)) from exc
+        child = container.research_service.create_run(
+            body.instruction,
+            mode=body.mode,
+            source_scope=body.source_scope or parent.source_scope,
+            document_ids=list(parent.document_ids),
+            project_id=parent.project_id,
+            use_memory=parent.use_memory,
+            output_language=body.output_language or parent.output_language,
+            branch=BranchOrigin(
+                parent_run_id=parent.id,
+                parent_title=parent.title or parent.query,
+                node_id=body.node_id,
+                node_type=str(node["type"]),
+                context_label=label,
+                context_text=context,
+                instruction=body.instruction,
+            ),
+        )
+        # Re-read: with a synchronous executor the run may already be past
+        # PENDING by the time create_run returns.
+        return RunDetailResponse.from_run(container.research_service.get_run(child.id))
+
+    @app.get("/api/runs/{run_id}/timeline")
+    def run_timeline(request: Request, run_id: str):
+        """Chronological execution of this run: a deterministic view over
+        stored events only (no model, embedding or network work)."""
+        from src.services.research_timeline import build_timeline
+
+        container = ctn(request)
+        run = container.research_service.get_run(run_id)
+        return build_timeline(run, container.events_repo.list(run_id))
+
+    @app.get("/api/runs/{run_id}/research-map")
+    def run_research_map(request: Request, run_id: str):
+        """How Atlas produced this run: a deterministic view over stored data only."""
+        from src.services.research_map import build_research_map
+
+        container = ctn(request)
+        run = container.research_service.get_run(run_id)
+        return build_research_map(
+            run,
+            container.events_repo.list(run_id),
+            children=container.runs_repo.list_children(run_id),
+        )
 
     @app.get("/api/runs/{run_id}", response_model=RunDetailResponse)
     def get_run(request: Request, run_id: str):
@@ -572,9 +647,34 @@ def create_app(container: Container | None = None) -> FastAPI:
         data["is_indexed"] = site.is_indexed
         return data
 
+    @app.post("/api/websites/discover")
+    def discover_website(request: Request, body: DiscoverWebsiteRequest):
+        """Bounded same-site page discovery (nothing is persisted)."""
+        result = ctn(request).website_chat_service.discover(body.url)
+        return {
+            "root_url": result.root_url,
+            "root_title": result.root_title,
+            "pages": [
+                {"url": p.url, "title": p.title, "found_via": p.found_via}
+                for p in result.pages
+            ],
+            "skipped": result.skipped,
+            "robots_applied": result.robots_applied,
+            "max_pages": ctn(request).config.website_max_pages,
+        }
+
+    @app.get("/api/websites/{website_id}/pages")
+    def website_pages(request: Request, website_id: str):
+        pages = ctn(request).website_chat_service.pages(website_id)
+        return {"pages": [p.model_dump(mode="json") for p in pages]}
+
     @app.post("/api/websites")
     def create_website(request: Request, body: CreateWebsiteRequest):
-        site, created = ctn(request).website_chat_service.submit(body.url)
+        service = ctn(request).website_chat_service
+        if body.mode == "SITE":
+            site, created = service.submit_site(body.url, body.page_urls)
+        else:
+            site, created = service.submit(body.url)
         return JSONResponse(
             status_code=201 if created else 200,
             content={**_website_json(site), "existing": not created},
@@ -634,6 +734,154 @@ def create_app(container: Container | None = None) -> FastAPI:
     @app.post("/api/website-messages/{message_id}/cancel")
     def cancel_website_message(request: Request, message_id: str):
         return ctn(request).website_chat_service.cancel_message(message_id).model_dump(mode="json")
+
+    # -- collections ---------------------------------------------------------------
+
+    def _collection_json(collection, count=None):
+        data = collection.model_dump(mode="json")
+        if count is not None:
+            data["item_count"] = count
+        return data
+
+    def _item_json(request, item):
+        """Item plus whether its origin still exists (honest dead-link marking)."""
+        container = ctn(request)
+        data = item.model_dump(mode="json")
+        origin = True
+        ref = item.data
+        if ref.get("run_id"):
+            origin = container.runs_repo.get(str(ref["run_id"])) is not None
+        elif ref.get("document_id"):
+            origin = container.documents_repo.get(str(ref["document_id"])) is not None
+        elif ref.get("website_id"):
+            origin = container.websites_repo.get(str(ref["website_id"])) is not None
+        data["origin_exists"] = origin
+        return data
+
+    @app.post("/api/collections", status_code=201)
+    def create_collection(request: Request, body: CreateCollectionRequest):
+        from src.models.collections import Collection
+
+        collection = Collection(
+            title=body.title.strip(), description=body.description.strip(),
+            project_id=body.project_id,
+        )
+        ctn(request).collections_repo.save(collection)
+        return _collection_json(collection, 0)
+
+    @app.get("/api/collections")
+    def list_collections(request: Request):
+        return {
+            "collections": [
+                _collection_json(c, n) for c, n in ctn(request).collections_repo.list()
+            ]
+        }
+
+    @app.get("/api/collections/{collection_id}")
+    def get_collection(request: Request, collection_id: str):
+        container = ctn(request)
+        collection = container.collections_repo.get(collection_id)
+        if collection is None:
+            raise WebsiteNotFoundError("Collection")
+        items = container.collections_repo.items(collection_id)
+        return {
+            "collection": _collection_json(collection, len(items)),
+            "items": [_item_json(request, i) for i in items],
+        }
+
+    @app.patch("/api/collections/{collection_id}")
+    def update_collection(request: Request, collection_id: str, body: UpdateCollectionRequest):
+        from src.models.runs import utcnow
+
+        container = ctn(request)
+        collection = container.collections_repo.get(collection_id)
+        if collection is None:
+            raise WebsiteNotFoundError("Collection")
+        if body.title is not None:
+            collection.title = body.title.strip()
+        if body.description is not None:
+            collection.description = body.description.strip()
+        collection.updated_at = utcnow()
+        container.collections_repo.save(collection)
+        return _collection_json(collection)
+
+    @app.delete("/api/collections/{collection_id}", status_code=204)
+    def delete_collection(request: Request, collection_id: str):
+        if not ctn(request).collections_repo.delete(collection_id):
+            raise WebsiteNotFoundError("Collection")
+
+    @app.post("/api/collections/{collection_id}/items", status_code=201)
+    def add_collection_item(request: Request, collection_id: str, body: AddCollectionItemRequest):
+        import json as _json
+
+        from src.models.collections import CollectionItem, CollectionItemType
+
+        container = ctn(request)
+        if container.collections_repo.get(collection_id) is None:
+            raise WebsiteNotFoundError("Collection")
+        if len(_json.dumps(body.data)) > 40_000:
+            raise WebsiteError("invalid_item", "This item is too large to save.")
+        item_type = CollectionItemType(body.type)
+        if item_type is CollectionItemType.NOTE and not body.note.strip():
+            raise WebsiteError("invalid_item", "A note needs some text.")
+        item, created = container.collections_repo.add_item(
+            CollectionItem(
+                collection_id=collection_id, type=item_type,
+                note=body.note.strip(), data=body.data,
+            )
+        )
+        return {**_item_json(request, item), "existing": not created}
+
+    @app.patch("/api/collection-items/{item_id}")
+    def update_collection_item(request: Request, item_id: str, body: UpdateCollectionItemRequest):
+        if not ctn(request).collections_repo.update_note(item_id, body.note.strip()):
+            raise WebsiteNotFoundError("Item")
+        return {"ok": True}
+
+    @app.delete("/api/collection-items/{item_id}", status_code=204)
+    def delete_collection_item(request: Request, item_id: str):
+        if not ctn(request).collections_repo.delete_item(item_id):
+            raise WebsiteNotFoundError("Item")
+
+    # -- document chat -----------------------------------------------------------
+
+    @app.post("/api/document-conversations", status_code=201)
+    def create_document_conversation(request: Request, body: CreateDocumentConversationRequest):
+        conversation = ctn(request).document_chat_service.create_conversation(
+            body.document_ids, body.output_language
+        )
+        return {"conversation": conversation.model_dump(mode="json"), "messages": []}
+
+    @app.get("/api/document-conversations")
+    def list_document_conversations(request: Request):
+        conversations = ctn(request).document_chat_service.list_conversations()
+        return {"conversations": [c.model_dump(mode="json") for c in conversations]}
+
+    @app.get("/api/document-conversations/{conversation_id}")
+    def get_document_conversation(request: Request, conversation_id: str):
+        conversation, messages = ctn(request).document_chat_service.get_conversation(conversation_id)
+        return {
+            "conversation": conversation.model_dump(mode="json"),
+            "messages": [m.model_dump(mode="json") for m in messages],
+        }
+
+    @app.delete("/api/document-conversations/{conversation_id}", status_code=204)
+    def delete_document_conversation(request: Request, conversation_id: str):
+        ctn(request).document_chat_service.delete_conversation(conversation_id)
+
+    @app.post("/api/document-conversations/{conversation_id}/messages", status_code=202)
+    def ask_documents(request: Request, conversation_id: str, body: DocumentQuestionRequest):
+        user, answer = ctn(request).document_chat_service.ask(conversation_id, body.question)
+        return {"user": user.model_dump(mode="json"), "answer": answer.model_dump(mode="json")}
+
+    @app.post("/api/document-messages/{message_id}/cancel")
+    def cancel_document_message(request: Request, message_id: str):
+        return ctn(request).document_chat_service.cancel_message(message_id).model_dump(mode="json")
+
+    @app.get("/api/documents/relationships")
+    def document_relationships(request: Request, ids: str):
+        document_ids = [part for part in ids.split(",") if part.strip()]
+        return ctn(request).document_chat_service.relationships(document_ids)
 
     # -- documents ------------------------------------------------------------
 
