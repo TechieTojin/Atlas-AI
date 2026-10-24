@@ -852,3 +852,109 @@ export interface RunTimeline {
   iterations: number | null
   incomplete: boolean
 }
+
+// --- Research integrity (Atlas Advanced) -------------------------------------
+
+export type VerificationStatus =
+  | 'SUPPORTED'
+  | 'PARTIALLY_SUPPORTED'
+  | 'UNSUPPORTED'
+  | 'CONTRADICTED'
+  | 'NOT_VERIFIABLE'
+
+export type ConfidenceBand = 'HIGH' | 'MODERATE' | 'LOW'
+
+export type ContradictionType =
+  | 'DIRECT_CONTRADICTION'
+  | 'CONTEXTUAL_DISAGREEMENT'
+  | 'MIXED_EVIDENCE'
+  | 'OUTDATED_VS_CURRENT'
+  | 'DIFFERENT_SCOPE'
+
+export interface VerificationSignal {
+  name: string
+  value: number | null
+  detail: string
+}
+
+export interface ClaimVerification {
+  id: string
+  claim_id: string
+  run_id: string
+  status: VerificationStatus
+  confidence: ConfidenceBand
+  verifier: 'DETERMINISTIC' | 'MODEL_ASSISTED'
+  signals: VerificationSignal[]
+  explanation: string
+  checked_citations: number[]
+  created_at: string
+}
+
+export interface ContradictionRecord {
+  id: string
+  run_id: string
+  claim_id: string | null
+  kind: ContradictionType
+  source_a: number
+  source_b: number
+  excerpt_a: string
+  excerpt_b: string
+  explanation: string
+  resolved: boolean
+  created_at: string
+}
+
+export interface IntegrityClaim {
+  id: string
+  run_id: string
+  project_id: string | null
+  section: string
+  text: string
+  text_norm: string
+  citations: number[]
+  position: number
+  created_at: string
+  verification: ClaimVerification | null
+  contradictions: ContradictionRecord[]
+}
+
+export interface QualityComponent {
+  name: string
+  available: boolean
+  /** 0..1 when available; null means Atlas could not compute this dimension. */
+  value: number | null
+  weight: number
+  detail: string
+}
+
+export interface QualityScore {
+  run_id: string
+  formula_version: number
+  components: QualityComponent[]
+  /** null when no dimension could be computed — never a fabricated number. */
+  overall: number | null
+  created_at: string
+}
+
+export interface IntegritySummary {
+  run_id: string
+  total_claims: number
+  supported: number
+  partially_supported: number
+  unsupported: number
+  contradicted: number
+  not_verifiable: number
+  contradiction_count: number
+  verified_claims: number
+  /** null when nothing was verifiable. */
+  support_rate: number | null
+}
+
+export interface RunIntegrity {
+  run_id: string
+  analyzed: boolean
+  summary: IntegritySummary
+  claims: IntegrityClaim[]
+  contradictions: ContradictionRecord[]
+  quality: QualityScore | null
+}

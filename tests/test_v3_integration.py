@@ -39,8 +39,9 @@ class TestMigration:
         conn = db.connect()
         version = conn.execute("SELECT MAX(version) AS v FROM schema_version").fetchone()["v"]
         db.release(conn)
-        # v3 project memory, v4 output language, v5 Website Chat
-        assert version == len(_MIGRATIONS) == 6
+        # v3 project memory, v4 output language, v5 Website Chat,
+        # v6 research workspace, v7 research integrity
+        assert version == len(_MIGRATIONS) == 7
 
     def test_v1_database_upgrades_preserving_data(self, tmp_path):
         """Simulate a pre-V3 database and verify a non-destructive upgrade."""

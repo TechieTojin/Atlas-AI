@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { errorMessage } from '../api/client'
 import { ProjectsHeroArt } from '../components/art/ProjectsHeroArt'
@@ -50,6 +50,16 @@ export function ProjectsPage() {
   const { t } = useI18n()
   const { projects, loading, error, create } = useProjects()
   const [creating, setCreating] = useState(false)
+
+  // Every other Atlas overlay closes on Escape; the create dialog must too.
+  useEffect(() => {
+    if (!creating) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setCreating(false)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [creating])
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [busy, setBusy] = useState(false)
@@ -133,7 +143,15 @@ export function ProjectsPage() {
 
       {creating && (
         <div className="dialog-scrim" role="presentation">
-          <form className="card project-dialog glass-card" onSubmit={handleCreate} aria-label={t('projects.createLabel')}>
+          {/* Modal semantics so assistive tech announces this as a dialog and
+              scopes the user to it, rather than reading it as inline form. */}
+          <form
+            className="card project-dialog glass-card"
+            role="dialog"
+            aria-modal="true"
+            onSubmit={handleCreate}
+            aria-label={t('projects.createLabel')}
+          >
             <div className="dialog-head">
               <h2>{t('projects.newProject')}</h2>
               <button

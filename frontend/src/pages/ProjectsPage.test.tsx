@@ -72,6 +72,21 @@ describe('ProjectsPage', () => {
     expect(requestBody(postCall?.[1])).toEqual({ name: 'Grid storage', description: 'Battery economics' })
   })
 
+  it('exposes the create form as a modal dialog that Escape closes', async () => {
+    // Regression: the overlay was a bare <form> inside a presentation scrim,
+    // so assistive tech never announced it as a dialog, and unlike every
+    // other Atlas overlay it ignored Escape.
+    renderPage()
+    await screen.findByText('Energy transition')
+
+    await userEvent.click(screen.getByRole('button', { name: 'New project' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
   it('shows an empty state when there are no projects', async () => {
     projects = []
     renderPage()

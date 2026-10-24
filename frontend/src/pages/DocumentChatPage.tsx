@@ -204,9 +204,13 @@ export function DocumentChatPage() {
         <Link className="back-link" to="/documents">
           <ArrowLeftIcon size={14} /> {t('documentChat.backToDocuments')}
         </Link>
-        <div className="page-state">
-          <p className="empty-note">{t('documentChat.noSelection')}</p>
-          <Link className="btn primary" to="/documents">
+        <div className="empty-state">
+          <span className="empty-state-icon" aria-hidden="true">
+            <FileTextIcon size={20} />
+          </span>
+          <h2 className="empty-state-title">{t('documentChat.title')}</h2>
+          <p className="empty-state-body">{t('documentChat.noSelection')}</p>
+          <Link className="btn primary empty-state-action" to="/documents">
             {t('documentChat.chooseDocuments')}
           </Link>
         </div>

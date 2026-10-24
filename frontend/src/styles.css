@@ -116,82 +116,106 @@
   --danger-soft: rgba(255, 122, 110, 0.14);
   --warning: #f2c14e;
   --warning-soft: rgba(242, 193, 78, 0.16);
-  --violet: #b18af8;
-  --violet-soft: rgba(177, 138, 248, 0.14);
-  --blue: #6cb2f7;
-  --blue-soft: rgba(108, 178, 247, 0.14);
+  /* Warm accent (ochre / terracotta) for restrained emphasis */
+  --warm: #e0a24a;
+  --warm-soft: rgba(224, 162, 74, 0.16);
+  /* Tertiary + info: muted plum and spruce — deliberately non-blue */
+  --violet: #c79ad8;
+  --violet-soft: rgba(199, 154, 216, 0.14);
+  --blue: #5fd3b0;
+  --blue-soft: rgba(95, 211, 176, 0.14);
   --on-accent: #06120b;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-card: 0 18px 40px rgba(0, 0, 0, 0.35);
   --radius-card: 16px;
   --radius-control: 12px;
+
+  /* Geometry scale — shared by every control so radii/heights stop drifting.
+     Theme-independent, so it is declared once here and inherited by light. */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --control-h-sm: 30px;
+  --control-h: 36px;
+  --control-h-lg: 44px;
+  /* One accessible, non-blue focus treatment for the whole product. */
+  --focus-ring: 0 0 0 3px var(--accent-soft);
   color-scheme: dark;
 }
 
 [data-theme='light'] {
-  --bg: #f3f7f4;
-  --bg-deep: #e9f0eb;
+  /* Premium light (primary experience): warm ivory canvas, forest-emerald
+     accent, restrained ochre/terracotta warm accents. No blue family. */
+  --bg: #faf8f3;
+  --bg-deep: #f1ede3;
   --bg-raised: #ffffff;
-  --bg-subtle: #eef3ef;
-  --bg-hover: #e3ebe5;
-  --bg-glass: rgba(255, 255, 255, 0.78);
-  --text: #0f1a16;
-  --text-muted: #4f5e59;
-  --text-faint: #7d8c87;
-  --border: rgba(30, 70, 50, 0.14);
-  --border-strong: rgba(30, 70, 50, 0.26);
-  --accent: #159a52;
-  --accent-strong: #0f8a47;
-  --accent-deep: #0c6e38;
-  --accent-soft: rgba(21, 154, 82, 0.12);
-  --accent-glow: rgba(21, 154, 82, 0.2);
-  --success: #159a52;
-  --success-soft: rgba(21, 154, 82, 0.12);
-  --danger: #c9463a;
-  --danger-soft: rgba(201, 70, 58, 0.12);
-  --warning: #9a6d00;
-  --warning-soft: rgba(154, 109, 0, 0.12);
-  --violet: #7d4fd3;
-  --violet-soft: rgba(125, 79, 211, 0.1);
-  --blue: #2270c7;
-  --blue-soft: rgba(34, 112, 199, 0.1);
+  --bg-subtle: #f6f3ec;
+  --bg-hover: #efeadd;
+  --bg-glass: rgba(255, 255, 255, 0.82);
+  --text: #1c1a16;
+  --text-muted: #5b564c;
+  --text-faint: #786f61;
+  --border: rgba(60, 48, 24, 0.12);
+  --border-strong: rgba(60, 48, 24, 0.22);
+  --accent: #0f7a43;
+  --accent-strong: #0b6838;
+  --accent-deep: #08502b;
+  --accent-soft: rgba(15, 122, 67, 0.1);
+  --accent-glow: rgba(15, 122, 67, 0.16);
+  --success: #157a43;
+  --success-soft: rgba(21, 122, 67, 0.12);
+  --danger: #b8432f;
+  --danger-soft: rgba(184, 67, 47, 0.1);
+  --warning: #9a6a16;
+  --warning-soft: rgba(176, 120, 30, 0.14);
+  /* Warm accent (ochre / terracotta) for restrained emphasis */
+  --warm: #b26a22;
+  --warm-soft: rgba(178, 106, 34, 0.12);
+  /* Tertiary + info: muted plum and spruce — deliberately non-blue */
+  --violet: #8a5676;
+  --violet-soft: rgba(138, 86, 118, 0.12);
+  --blue: #2f7d6a;
+  --blue-soft: rgba(47, 125, 106, 0.12);
   --on-accent: #ffffff;
-  --shadow: 0 1px 2px rgba(20, 30, 26, 0.08);
-  --shadow-card: 0 14px 30px rgba(20, 40, 30, 0.1);
+  --shadow: 0 1px 2px rgba(48, 36, 16, 0.06);
+  --shadow-card: 0 12px 28px rgba(54, 42, 18, 0.09);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']) {
-    --bg: #f3f7f4;
-    --bg-deep: #e9f0eb;
+    --bg: #faf8f3;
+    --bg-deep: #f1ede3;
     --bg-raised: #ffffff;
-    --bg-subtle: #eef3ef;
-    --bg-hover: #e3ebe5;
-    --bg-glass: rgba(255, 255, 255, 0.78);
-    --text: #0f1a16;
-    --text-muted: #4f5e59;
-    --text-faint: #7d8c87;
-    --border: rgba(30, 70, 50, 0.14);
-    --border-strong: rgba(30, 70, 50, 0.26);
-    --accent: #159a52;
-    --accent-strong: #0f8a47;
-    --accent-deep: #0c6e38;
-    --accent-soft: rgba(21, 154, 82, 0.12);
-    --accent-glow: rgba(21, 154, 82, 0.2);
-    --success: #159a52;
-    --success-soft: rgba(21, 154, 82, 0.12);
-    --danger: #c9463a;
-    --danger-soft: rgba(201, 70, 58, 0.12);
-    --warning: #9a6d00;
-    --warning-soft: rgba(154, 109, 0, 0.12);
-    --violet: #7d4fd3;
-    --violet-soft: rgba(125, 79, 211, 0.1);
-    --blue: #2270c7;
-    --blue-soft: rgba(34, 112, 199, 0.1);
+    --bg-subtle: #f6f3ec;
+    --bg-hover: #efeadd;
+    --bg-glass: rgba(255, 255, 255, 0.82);
+    --text: #1c1a16;
+    --text-muted: #5b564c;
+    --text-faint: #786f61;
+    --border: rgba(60, 48, 24, 0.12);
+    --border-strong: rgba(60, 48, 24, 0.22);
+    --accent: #0f7a43;
+    --accent-strong: #0b6838;
+    --accent-deep: #08502b;
+    --accent-soft: rgba(15, 122, 67, 0.1);
+    --accent-glow: rgba(15, 122, 67, 0.16);
+    --success: #157a43;
+    --success-soft: rgba(21, 122, 67, 0.12);
+    --danger: #b8432f;
+    --danger-soft: rgba(184, 67, 47, 0.1);
+    --warning: #9a6a16;
+    --warning-soft: rgba(176, 120, 30, 0.14);
+    --warm: #b26a22;
+    --warm-soft: rgba(178, 106, 34, 0.12);
+    --violet: #8a5676;
+    --violet-soft: rgba(138, 86, 118, 0.12);
+    --blue: #2f7d6a;
+    --blue-soft: rgba(47, 125, 106, 0.12);
     --on-accent: #ffffff;
-    --shadow: 0 1px 2px rgba(20, 30, 26, 0.08);
-    --shadow-card: 0 14px 30px rgba(20, 40, 30, 0.1);
+    --shadow: 0 1px 2px rgba(48, 36, 16, 0.06);
+    --shadow-card: 0 12px 28px rgba(54, 42, 18, 0.09);
     color-scheme: light;
   }
 }
@@ -591,68 +615,118 @@ button {
 /* Buttons & inputs                                                    */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* Button system — one geometry, explicit variants                     */
+/* Secondary is the default `.btn`; `.primary` / `.danger-ghost` /     */
+/* `.ghost` / `.compact` / `.large` are the modifiers used in markup.  */
+/* ------------------------------------------------------------------ */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 7px 14px;
-  border-radius: 7px;
+  gap: 8px;
+  min-height: var(--control-h);
+  padding: 0 15px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-strong);
   background: var(--bg-raised);
   color: var(--text);
   font-size: 13.5px;
   font-weight: 500;
+  line-height: 1.2;
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  white-space: nowrap;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease,
+    box-shadow 0.14s ease;
 }
 
 .btn:hover:not(:disabled) {
   background: var(--bg-hover);
+  border-color: var(--text-faint);
   text-decoration: none;
 }
 
+.btn:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+
+.btn:focus-visible,
+.icon-btn:focus-visible,
+.link-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
+/* Primary — the single strongest action on a surface. */
 .btn.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
+  font-weight: 600;
 }
 
 .btn.primary:hover:not(:disabled) {
   background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  box-shadow: var(--focus-ring);
+}
+
+/* Tertiary / ghost — no chrome until hovered. */
+.btn.ghost,
+.btn.light {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.btn.ghost:hover:not(:disabled),
+.btn.light:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border);
+  color: var(--text);
 }
 
 .btn.large {
-  padding: 10px 22px;
+  min-height: var(--control-h-lg);
+  padding: 0 24px;
   font-size: 14.5px;
+}
+
+.btn.compact {
+  min-height: var(--control-h-sm);
+  padding: 0 11px;
+  font-size: 12.5px;
 }
 
 .btn.danger-ghost {
   color: var(--danger);
   border-color: var(--border-strong);
+  background: transparent;
 }
 
 .btn.danger-ghost:hover:not(:disabled) {
   background: var(--danger-soft);
   border-color: var(--danger);
+  color: var(--danger);
 }
 
 .icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 6px;
-  border: none;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  border-radius: var(--radius-xs);
+  border: 1px solid transparent;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
 }
 
 .icon-btn:hover {
@@ -672,27 +746,74 @@ button {
   color: var(--accent);
   cursor: pointer;
   font-size: 13px;
+  font-weight: 500;
+  border-radius: 3px;
 }
 
 .link-btn:hover {
   text-decoration: underline;
 }
 
+/* ------------------------------------------------------------------ */
+/* Form controls — one geometry and one focus treatment (never blue)   */
+/* ------------------------------------------------------------------ */
 .text-input {
   width: 100%;
-  padding: 8px 11px;
-  border-radius: 7px;
+  min-height: var(--control-h);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-strong);
-  background: var(--bg);
+  background: var(--bg-raised);
   color: var(--text);
   font: inherit;
   resize: vertical;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
 }
 
+.text-input::placeholder {
+  color: var(--text-faint);
+}
+
+.text-input:hover:not(:disabled):not(:focus) {
+  border-color: var(--text-faint);
+}
+
+.text-input:focus,
 .text-input:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 0;
+  outline: none;
   border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+.text-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--bg-subtle);
+}
+
+.text-input.has-error,
+.text-input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.text-input.has-error:focus,
+.text-input[aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px var(--danger-soft);
+}
+
+/* Native controls pick up the brand accent rather than the UA blue. */
+input[type='checkbox'],
+input[type='radio'],
+select,
+progress {
+  accent-color: var(--accent);
+}
+
+select:focus-visible,
+input[type='checkbox']:focus-visible,
+input[type='radio']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .btn-row {
@@ -702,6 +823,9 @@ button {
   margin-top: 18px;
 }
 
+/* ------------------------------------------------------------------ */
+/* Messaging: hints, field errors and alerts                           */
+/* ------------------------------------------------------------------ */
 .form-error {
   color: var(--danger);
   font-size: 13px;
@@ -718,10 +842,157 @@ button {
   margin: 4px 0;
 }
 
+/* A calm, actionable alert block. Tone modifiers keep errors readable
+   without shouting. */
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.alert.tone-danger {
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  background: var(--danger-soft);
+}
+
+.alert.tone-warning {
+  border-color: color-mix(in srgb, var(--warning) 40%, transparent);
+  background: var(--warning-soft);
+}
+
+.alert.tone-success {
+  border-color: color-mix(in srgb, var(--success) 40%, transparent);
+  background: var(--success-soft);
+}
+
+/* ------------------------------------------------------------------ */
+/* Empty states — explain what the surface is for and what to do next  */
+/* ------------------------------------------------------------------ */
+/* In-context empty state. Styling this shared class (rather than every call
+   site) gives every "nothing here yet" surface an intentional, calm panel. */
 .empty-note {
-  color: var(--text-faint);
-  padding: 28px 0;
+  margin: 8px 0;
+  padding: 26px 24px;
   text-align: center;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  line-height: 1.6;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 580px;
+  margin: 40px auto;
+  padding: 48px 28px;
+  text-align: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-card);
+  background:
+    radial-gradient(70% 60% at 50% 0%, var(--accent-soft), transparent 70%),
+    var(--bg-raised);
+}
+
+.empty-state-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.empty-state-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.empty-state-body {
+  margin: 0;
+  max-width: 44ch;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.empty-state-action {
+  margin-top: 10px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Loading — honest skeletons, never fabricated progress               */
+/* ------------------------------------------------------------------ */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--text) 7%, transparent),
+    transparent
+  );
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+}
+
+.skeleton-line {
+  height: 12px;
+  margin-bottom: 10px;
+}
+
+.skeleton-line.wide {
+  width: 100%;
+}
+
+.skeleton-line.medium {
+  width: 72%;
+}
+
+.skeleton-line.short {
+  width: 44%;
+}
+
+.skeleton-block {
+  height: 112px;
+}
+
+@keyframes skeleton-sweep {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -940,11 +1211,15 @@ button {
   min-width: 0;
 }
 
+/* Page-level question/title. Uses the editorial display face so run and
+   comparison headers match the rest of the product's page headings. */
 .run-query {
-  font-size: 21px;
+  font-family: var(--font-display);
+  font-size: 27px;
   font-weight: 600;
+  line-height: 1.22;
   letter-spacing: -0.01em;
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   overflow-wrap: anywhere;
 }
 
@@ -968,21 +1243,27 @@ button {
   gap: 9px;
 }
 
+/* Page-level loading / not-found state. */
 .page-state {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 12px;
+  min-height: 42vh;
   padding: 72px 20px;
   text-align: center;
   color: var(--text-muted);
 }
 
 .page-state h1 {
-  font-size: 20px;
-  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
   margin: 0;
+  color: var(--text);
 }
+
 
 .spinner {
   width: 20px;
@@ -1348,36 +1629,58 @@ button {
   flex-direction: column;
 }
 
+/* Sources read as a rigorous reference list: a fixed citation chip, the title
+   on its own line, then provenance/actions in a stable meta row — so every
+   entry scans identically regardless of title length. */
 .source-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 12px 4px;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  align-items: start;
+  gap: 4px 14px;
+  padding: 13px 8px;
   border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  transition: background 0.14s ease;
+}
+
+.source-item:last-child {
+  border-bottom: none;
+}
+
+.source-item:hover {
+  background: var(--bg-subtle);
 }
 
 .source-index {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 22px;
-  text-align: right;
-  padding-top: 2px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: var(--radius-xs);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .source-body {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 14px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
   min-width: 0;
 }
 
 .source-title {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 7px;
   font-weight: 500;
+  line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
@@ -1413,11 +1716,19 @@ button {
   gap: 14px;
 }
 
+/* Evidence reads like cited testimony: the passage is the hero, with its
+   provenance (source, query, score) as supporting context around it. */
 .evidence-card {
   background: var(--bg-raised);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 16px 18px;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.evidence-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-card);
 }
 
 .evidence-header {
@@ -1441,14 +1752,27 @@ button {
 }
 
 .evidence-query {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   font-size: 12.5px;
   color: var(--text-faint);
 }
 
+/* The quoted passage itself — given reading weight and an accent rule so the
+   evidence, not the chrome, is what the eye lands on. */
 .evidence-snippet {
   margin: 0 0 6px;
-  color: var(--text-muted);
+  padding-left: 14px;
+  border-left: 2px solid var(--accent-soft);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.62;
+}
+
+.evidence-card:hover .evidence-snippet {
+  border-left-color: var(--accent);
+}
+
+.evidence-card.compact .evidence-snippet {
   font-size: 13.5px;
 }
 
@@ -1474,30 +1798,63 @@ button {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+  gap: 12px;
 }
 
 .metric-card {
+  position: relative;
   background: var(--bg-raised);
   border: 1px solid var(--border);
-  border-radius: 9px;
-  padding: 13px 15px;
+  border-radius: var(--radius-control);
+  padding: 16px 16px 15px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 5px;
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* A quiet accent rule anchors each metric without turning the panel into a
+   wall of equal boxes. */
+.metric-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  opacity: 0.55;
+}
+
+.metric-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-card);
 }
 
 .metric-value {
-  font-size: 18px;
+  font-family: var(--font-display);
+  font-size: 26px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
+  color: var(--text);
+  line-height: 1.1;
 }
 
 .metric-label {
   font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
   color: var(--text-faint);
+  /* Long labels (e.g. "Unique to <full research question>") must not grow a
+     metric card into a paragraph; clamp and expose the full text on hover. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .evaluation-list {

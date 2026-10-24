@@ -249,6 +249,68 @@ def create_app(container: Container | None = None) -> FastAPI:
         claims = extract_claims(run.final_report, len(run.selected_sources))
         return {"claims": [c.model_dump() for c in claims]}
 
+    def _integrity_payload(container, run_id: str) -> dict:
+        """Persisted integrity view of a run: claims, verdicts, quality.
+
+        Reads only stored rows — never recomputes on request — so opening the
+        tab costs no model calls.
+        """
+        repo = container.integrity_repo
+        claims = repo.claims_for_run(run_id)
+        verifications = {v.claim_id: v for v in repo.verifications_for_run(run_id)}
+        contradictions = repo.contradictions_for_run(run_id)
+        by_claim: dict[str, list] = {}
+        for c in contradictions:
+            if c.claim_id:
+                by_claim.setdefault(c.claim_id, []).append(c)
+        summary = container.integrity_service.summarize(
+            run_id, list(verifications.values()), contradictions
+        )
+        quality = repo.quality_for_run(run_id)
+        return {
+            "run_id": run_id,
+            "analyzed": bool(claims) or quality is not None,
+            "summary": {
+                **summary.model_dump(),
+                "verified_claims": summary.verified_claims,
+                "support_rate": summary.support_rate,
+            },
+            "claims": [
+                {
+                    **claim.model_dump(mode="json"),
+                    "verification": (
+                        verifications[claim.id].model_dump(mode="json")
+                        if claim.id in verifications
+                        else None
+                    ),
+                    "contradictions": [
+                        c.model_dump(mode="json") for c in by_claim.get(claim.id, [])
+                    ],
+                }
+                for claim in claims
+            ],
+            "contradictions": [c.model_dump(mode="json") for c in contradictions],
+            "quality": quality.model_dump(mode="json") if quality else None,
+        }
+
+    @app.get("/api/runs/{run_id}/integrity")
+    def run_integrity(request: Request, run_id: str):
+        container = ctn(request)
+        container.research_service.get_run(run_id)  # 404s for unknown runs
+        return _integrity_payload(container, run_id)
+
+    @app.post("/api/runs/{run_id}/integrity/analyze")
+    def analyze_run_integrity(request: Request, run_id: str):
+        """Derive integrity artifacts for an already-completed run.
+
+        Needed for runs completed before this feature existed. It reads the
+        stored report and evidence only: the run itself is never modified.
+        """
+        container = ctn(request)
+        run = container.research_service.get_run(run_id)
+        container.integrity_service.analyze_run(run)
+        return _integrity_payload(container, run_id)
+
     @app.post("/api/runs/{run_id}/branches", status_code=201, response_model=RunDetailResponse)
     def create_branch(request: Request, run_id: str, body: CreateBranchRequest):
         """Start a NEW research run from one node of this run's Research Map.

@@ -132,7 +132,9 @@ export function CollectionsPage() {
                 <span className="website-card-body">
                   <span className="website-card-title">{collection.title}</span>
                   <span className="website-card-url">
-                    {t('collections.itemCount', { count: String(collection.item_count ?? 0) })} ·{' '}
+                    {/* count must stay numeric: translate.ts selects the
+                        locale's plural form from it. */}
+                    {t('collections.itemCount', { count: collection.item_count ?? 0 })} ·{' '}
                     {agoLabel(t, format, collection.updated_at)}
                   </span>
                 </span>

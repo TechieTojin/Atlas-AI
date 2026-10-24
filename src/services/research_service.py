@@ -112,6 +112,8 @@ class ResearchService:
         self._bus = bus
         self._memory = memory
         self._project_memory = project_memory
+        #: Set by the container after construction; see attach_integrity.
+        self._integrity = None
         self._documents = documents
         self._projects = projects
         self._page_fetcher_factory = page_fetcher_factory or self._default_fetcher
@@ -562,6 +564,10 @@ class ResearchService:
         run.completed_at = utcnow()
         run.updated_at = utcnow()
         self._runs.save(run)
+        # Integrity analysis runs after the run row is saved so its derived
+        # rows always have a persisted parent. It is deterministic and
+        # best-effort: a failure here must never fail a completed run.
+        self._analyze_integrity(run)
         if self._project_memory is not None and run.project_id:
             try:
                 self._project_memory.remember_run(run)
@@ -575,6 +581,23 @@ class ResearchService:
             iterations=run.iterations,
             total_ms=run.metrics.total_ms,
         )
+
+    def attach_integrity(self, integrity) -> None:
+        """Wire the integrity analyser in after construction.
+
+        Kept out of ``__init__`` so the research service has no import-time
+        dependency on integrity, and so existing tests that build the service
+        directly keep working with integrity simply switched off.
+        """
+        self._integrity = integrity
+
+    def _analyze_integrity(self, run: ResearchRun) -> None:
+        if self._integrity is None:
+            return
+        try:
+            self._integrity.analyze_run(run)
+        except Exception:  # derived analysis is an enhancement, never fatal
+            logger.warning("Research integrity analysis failed.", exc_info=True)
 
     def _build_metrics(self, run: ResearchRun, state: dict) -> RunMetrics:
         metrics = run.metrics.model_copy()

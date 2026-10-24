@@ -19,13 +19,16 @@ export const MAX_RENDERED_NODES = 60
 const WIDTH = 900
 const HEIGHT = 540
 
+/* Restrained, deliberately non-blue entity palette. Six hues chosen to stay
+   distinguishable from one another (emerald / ochre / plum / spruce /
+   terracotta / neutral) rather than two near-identical greens. */
 const TYPE_COLORS = [
   'var(--accent)',
+  'var(--warm)',
   'var(--violet)',
   'var(--blue)',
-  'var(--success)',
-  'var(--warning)',
   'var(--danger)',
+  'var(--text-muted)',
 ]
 
 interface SimNode extends SimulationNodeDatum {

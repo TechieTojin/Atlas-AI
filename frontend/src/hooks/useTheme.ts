@@ -13,19 +13,10 @@ function storedTheme(): Theme | null {
   }
 }
 
-function systemTheme(): Theme {
-  try {
-    if (typeof window.matchMedia === 'function') {
-      return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
-    }
-  } catch {
-    // fall through
-  }
-  return 'dark'
-}
-
 export function initialTheme(): Theme {
-  return storedTheme() ?? systemTheme()
+  // Premium light is the primary Atlas experience: new sessions default to
+  // light; an explicit stored choice (including dark) is always respected.
+  return storedTheme() ?? 'light'
 }
 
 export function useTheme(): { theme: Theme; toggleTheme: () => void } {

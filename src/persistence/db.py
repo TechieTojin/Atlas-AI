@@ -342,6 +342,67 @@ _MIGRATIONS: list[str] = [
         UNIQUE (collection_id, position)
     );
     """,
+    # v7 — Atlas Advanced research integrity: first-class claims, citation
+    # verification verdicts, recorded contradictions and a transparent quality
+    # score. Purely additive: no existing table is altered and no historical
+    # artifact is rewritten. Rows are derived from already-persisted reports,
+    # so a run can be (re)analysed at any time without re-running research.
+    """
+    CREATE TABLE IF NOT EXISTS claims (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+        project_id TEXT NOT NULL DEFAULT '',
+        section TEXT NOT NULL DEFAULT '',
+        text TEXT NOT NULL,
+        text_norm TEXT NOT NULL DEFAULT '',
+        citations TEXT NOT NULL DEFAULT '[]',
+        position INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        UNIQUE (run_id, text_norm)
+    );
+    CREATE INDEX IF NOT EXISTS idx_claims_run ON claims(run_id);
+    CREATE INDEX IF NOT EXISTS idx_claims_project ON claims(project_id);
+
+    CREATE TABLE IF NOT EXISTS claim_verifications (
+        id TEXT PRIMARY KEY,
+        claim_id TEXT NOT NULL REFERENCES claims(id) ON DELETE CASCADE,
+        run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+        status TEXT NOT NULL,
+        confidence TEXT NOT NULL DEFAULT 'LOW',
+        verifier TEXT NOT NULL DEFAULT 'DETERMINISTIC',
+        signals TEXT NOT NULL DEFAULT '[]',
+        explanation TEXT NOT NULL DEFAULT '',
+        checked_citations TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT NOT NULL,
+        UNIQUE (claim_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_verifications_run ON claim_verifications(run_id);
+    CREATE INDEX IF NOT EXISTS idx_verifications_status ON claim_verifications(status);
+
+    CREATE TABLE IF NOT EXISTS contradictions (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+        claim_id TEXT NOT NULL DEFAULT '',
+        kind TEXT NOT NULL,
+        source_a INTEGER NOT NULL,
+        source_b INTEGER NOT NULL,
+        excerpt_a TEXT NOT NULL DEFAULT '',
+        excerpt_b TEXT NOT NULL DEFAULT '',
+        explanation TEXT NOT NULL DEFAULT '',
+        resolved INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_contradictions_run ON contradictions(run_id);
+    CREATE INDEX IF NOT EXISTS idx_contradictions_claim ON contradictions(claim_id);
+
+    CREATE TABLE IF NOT EXISTS quality_scores (
+        run_id TEXT PRIMARY KEY REFERENCES runs(id) ON DELETE CASCADE,
+        formula_version INTEGER NOT NULL DEFAULT 1,
+        overall REAL,
+        components TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT NOT NULL
+    );
+    """,
 ]
 
 

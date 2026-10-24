@@ -99,7 +99,14 @@ describe('RunTabs', () => {
     )
     render(<RunTabs run={run} />)
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent)
-    expect(tabs.slice(0, 5).map((text) => text?.replace(/\d+$/, ''))).toEqual(['Report', 'Sources', 'Evidence', 'Metrics', 'Graph'])
+    expect(tabs.slice(0, 6).map((text) => text?.replace(/\d+$/, ''))).toEqual([
+      'Report',
+      'Sources',
+      'Evidence',
+      'Integrity',
+      'Metrics',
+      'Graph',
+    ])
     await user.click(screen.getByRole('tab', { name: 'Research Map' }))
     expect(screen.getByRole('tab', { name: 'Research Map' })).toHaveAttribute('aria-selected', 'true')
     await user.click(await screen.findByRole('button', { name: /^Report: The report/ }))

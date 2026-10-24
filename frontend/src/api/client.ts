@@ -31,6 +31,7 @@ import type {
   WebsiteConversationDetail,
   WebsiteMessage,
   WebsiteSource,
+  RunIntegrity,
 } from '../types'
 import { activeTranslator } from '../i18n/labels'
 
@@ -283,6 +284,10 @@ export const api = {
     body: { node_id: string; instruction: string; mode?: string; source_scope?: string; output_language?: string },
   ) => request<RunDetail>(`/runs/${runId}/branches`, jsonInit('POST', body)),
   getRunClaims: (id: string) => request<{ claims: Claim[] }>(`/runs/${id}/claims`),
+
+  getRunIntegrity: (id: string) => request<RunIntegrity>(`/runs/${id}/integrity`),
+  analyzeRunIntegrity: (id: string) =>
+    request<RunIntegrity>(`/runs/${id}/integrity/analyze`, jsonInit('POST', {})),
 
   listTemplates: () => request<{ templates: TemplateInfo[] }>('/templates'),
 

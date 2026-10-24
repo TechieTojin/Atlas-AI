@@ -31,8 +31,10 @@ from src.services.followup_service import FollowUpService
 from src.services.kg_service import KGService
 from src.services.overview_service import ProjectOverviewService
 from src.services.project_graph import ProjectGraphService
+from src.services.integrity_service import IntegrityService
 from src.services.research_service import ResearchService
 from src.persistence.collections import CollectionsRepository
+from src.persistence.integrity import IntegrityRepository
 from src.persistence.document_chat import DocumentChatRepository
 from src.services.document_chat_service import DocumentChatService
 from src.services.website_chat_service import WebsiteChatService
@@ -67,6 +69,7 @@ class Container:
         self.websites_repo = WebsitesRepository(self.db)
         self.document_chat_repo = DocumentChatRepository(self.db)
         self.collections_repo = CollectionsRepository(self.db)
+        self.integrity_repo = IntegrityRepository(self.db)
         self.bus = RunEventBus()
         # One router decides language -> model and capability for every
         # generating service, so they can never disagree.
@@ -113,6 +116,11 @@ class Container:
         shared_executor = self.research_service._executor
         shared_llm = self.research_service._llm_factory
         shared_search = self.research_service._search_factory
+        # Research integrity derives claims/verification/contradictions/quality
+        # from an already-completed run. It is deterministic and needs no LLM,
+        # so it takes no model factory and cannot inflate run cost.
+        self.integrity_service = IntegrityService(self.integrity_repo)
+        self.research_service.attach_integrity(self.integrity_service)
         self.followup_service = FollowUpService(
             self.config,
             self.followups_repo,

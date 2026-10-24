@@ -3,20 +3,30 @@ import { api } from '../api/client'
 import { useI18n } from '../i18n'
 import type { RunDetail } from '../types'
 import { EvidenceList } from './EvidenceList'
+import { IntegrityPanel } from './IntegrityPanel'
 import { KnowledgeGraphTab, runKnowledgeGraphTabProps } from './KnowledgeGraph'
 import { MetricsPanel } from './MetricsPanel'
 import { ReportSections } from './ReportSections'
 import { DocumentInfo, QuickActions, ReportContents } from './ReportSidebar'
 import { SourcesList } from './SourcesList'
-import { BarChartIcon, FileTextIcon, LayersIcon, ListTreeIcon, NetworkIcon, QuoteIcon } from './icons'
+import {
+  BarChartIcon,
+  FileTextIcon,
+  LayersIcon,
+  ListTreeIcon,
+  NetworkIcon,
+  QuoteIcon,
+  ShieldCheckIcon,
+} from './icons'
 import { ResearchMap } from './ResearchMap'
 
-type TabId = 'report' | 'sources' | 'evidence' | 'metrics' | 'graph' | 'map'
+type TabId = 'report' | 'sources' | 'evidence' | 'integrity' | 'metrics' | 'graph' | 'map'
 
 const TABS: { id: TabId; icon: typeof FileTextIcon }[] = [
   { id: 'report', icon: FileTextIcon },
   { id: 'sources', icon: LayersIcon },
   { id: 'evidence', icon: QuoteIcon },
+  { id: 'integrity', icon: ShieldCheckIcon },
   { id: 'metrics', icon: BarChartIcon },
   { id: 'graph', icon: NetworkIcon },
   { id: 'map', icon: ListTreeIcon },
@@ -93,6 +103,11 @@ export function RunTabs({ run, projectName = null }: { run: RunDetail; projectNa
         {active === 'evidence' && (
           <div className="glass-card panel-card">
             <EvidenceList evidence={run.evidence} />
+          </div>
+        )}
+        {active === 'integrity' && (
+          <div className="glass-card panel-card">
+            <IntegrityPanel runId={run.id} />
           </div>
         )}
         {active === 'metrics' && (

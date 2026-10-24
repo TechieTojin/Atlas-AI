@@ -94,6 +94,17 @@ describe('Collections', () => {
     expect(requestBody(created?.[1] as RequestInit)).toEqual({ title: 'Field notes' })
   })
 
+  it('uses a real singular form for a one-item collection', async () => {
+    // Regression: the count was a hardcoded "{count} items", which rendered
+    // "1 items". It is now a { one, other } message, so translate.ts selects
+    // the locale's plural form.
+    backend({ collections: [collection({ item_count: 1 })] })
+    const { t } = await renderWithLocale(<CollectionsPage />, { route: '/collections' })
+    expect(await screen.findByText('Battery notes')).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(t('collections.itemCount', { count: 1 })))).toBeInTheDocument()
+    expect(screen.queryByText(/\b1 items\b/)).toBeNull()
+  })
+
   it('shows items with provenance and keeps notes visually distinct from evidence', async () => {
     backend()
     const { t } = await renderWithLocale(<CollectionPage />, {
